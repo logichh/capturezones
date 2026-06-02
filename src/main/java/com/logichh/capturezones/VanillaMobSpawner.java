@@ -17,16 +17,14 @@ import java.util.Random;
 import java.util.Set;
 import java.util.logging.Logger;
 
-/**
- * Vanilla Minecraft mob spawner implementation.
- * Spawns regular Minecraft mobs with equipment and effects.
- */
 public class VanillaMobSpawner implements MobSpawner {
     
     private final CaptureZones plugin;
     private final Logger logger;
     private final Random random;
+
     private final Set<String> invalidMobTypes = new HashSet<>();
+
     private final Set<String> invalidHatItems = new HashSet<>();
     private boolean warnedNoMobTypes;
     
@@ -37,6 +35,7 @@ public class VanillaMobSpawner implements MobSpawner {
     }
     
     @Override
+
     public LivingEntity spawnMob(String pointId, Location location, Player target) {
         List<EntityType> mobTypes = resolveMobTypes(pointId);
         if (mobTypes.isEmpty()) {
@@ -45,10 +44,7 @@ public class VanillaMobSpawner implements MobSpawner {
         }
         
         try {
-            // Select random mob type
             EntityType mobType = mobTypes.get(random.nextInt(mobTypes.size()));
-            
-            // Spawn the entity
             Entity entity = location.getWorld().spawnEntity(location, mobType);
             
             if (!(entity instanceof LivingEntity)) {
@@ -57,14 +53,10 @@ public class VanillaMobSpawner implements MobSpawner {
             }
             
             LivingEntity livingEntity = (LivingEntity) entity;
-            
-            // Apply equipment and effects
             equipMob(livingEntity, resolveHatItems(pointId));
             applyEffects(livingEntity);
 
             livingEntity.setMetadata("reinforcement_source", new FixedMetadataValue(plugin, "VANILLA"));
-            
-            // Set AI target if specified
             if (target != null && livingEntity instanceof Mob) {
                 ((Mob) livingEntity).setTarget(target);
             }
@@ -83,15 +75,10 @@ public class VanillaMobSpawner implements MobSpawner {
             return null;
         }
     }
-    
-    /**
-     * Equip the mob with armor and weapons.
-     */
+
     private void equipMob(LivingEntity entity, List<Material> hatItems) {
         EntityEquipment equipment = entity.getEquipment();
         if (equipment == null) return;
-        
-        // Give helmet to prevent burning (for zombies, skeletons, etc.)
         if (shouldWearHelmet(entity)) {
             if (!hatItems.isEmpty()) {
                 Material hatMaterial = hatItems.get(random.nextInt(hatItems.size()));
@@ -100,8 +87,6 @@ public class VanillaMobSpawner implements MobSpawner {
                 equipment.setHelmetDropChance(0.0f);
             }
         }
-        
-        // Give weapons based on mob type
         if (entity instanceof Zombie || entity instanceof ZombieVillager || entity instanceof Husk) {
             if (random.nextDouble() < 0.3) { // 30% chance for weapon
                 ItemStack weapon = getRandomWeapon();
@@ -109,18 +94,13 @@ public class VanillaMobSpawner implements MobSpawner {
                 equipment.setItemInMainHandDropChance(0.0f);
             }
         }
-        
-        // Give bow to skeletons if they don't have one
         if (entity instanceof Skeleton || entity instanceof Stray) {
             ItemStack bow = new ItemStack(Material.BOW);
             equipment.setItemInMainHand(bow);
             equipment.setItemInMainHandDropChance(0.0f);
         }
     }
-    
-    /**
-     * Check if this mob type should wear a helmet.
-     */
+
     private boolean shouldWearHelmet(LivingEntity entity) {
         return entity instanceof Zombie ||
                entity instanceof ZombieVillager ||
@@ -129,10 +109,7 @@ public class VanillaMobSpawner implements MobSpawner {
                entity instanceof Husk ||
                entity instanceof WitherSkeleton;
     }
-    
-    /**
-     * Get a random weapon for the mob.
-     */
+
     private ItemStack getRandomWeapon() {
         Material[] weapons = {
             Material.WOODEN_SWORD,
@@ -142,12 +119,8 @@ public class VanillaMobSpawner implements MobSpawner {
         };
         return new ItemStack(weapons[random.nextInt(weapons.length)]);
     }
-    
-    /**
-     * Apply potion effects to make the mob more challenging.
-     */
+
     private void applyEffects(LivingEntity entity) {
-        // Slight chance for enhanced mobs
         if (random.nextDouble() < 0.1) { // 10% chance
             entity.addPotionEffect(new PotionEffect(
                 PotionEffectType.SPEED,
@@ -160,7 +133,7 @@ public class VanillaMobSpawner implements MobSpawner {
         
         if (random.nextDouble() < 0.05) { // 5% chance
             entity.addPotionEffect(new PotionEffect(
-                PotionEffectType.INCREASE_DAMAGE,
+                PotionEffectType.STRENGTH,
                 Integer.MAX_VALUE,
                 0,
                 false,
@@ -170,16 +143,19 @@ public class VanillaMobSpawner implements MobSpawner {
     }
     
     @Override
+
     public boolean isAvailable() {
         return !resolveMobTypes(null).isEmpty();
     }
     
     @Override
+
     public String getName() {
         return "Vanilla Minecraft";
     }
     
     @Override
+
     public List<String> getConfiguredMobs() {
         List<EntityType> mobTypes = resolveMobTypes(null);
         List<String> result = new ArrayList<>();
@@ -188,10 +164,7 @@ public class VanillaMobSpawner implements MobSpawner {
         }
         return result;
     }
-    
-    /**
-     * Reload configuration from disk.
-     */
+
     public void reload() {
         invalidMobTypes.clear();
         invalidHatItems.clear();

@@ -58,12 +58,19 @@ public class ReinforcementListener implements Listener {
     }
 
     private final CaptureZones plugin;
+
     private final Map<String, List<UUID>> activeReinforcements = new HashMap<>();
+
     private final Map<String, BukkitTask> phaseTasks = new HashMap<>();
+
     private final Map<String, BukkitTask> trackingTasks = new HashMap<>();
+
     private final Map<String, Integer> currentPhase = new HashMap<>();
+
     private final Deque<SpawnRequest> spawnQueue = new ArrayDeque<>();
+
     private final Map<String, Integer> pendingSpawns = new HashMap<>();
+
     private final Random random = new Random();
     private BukkitTask spawnProcessorTask;
     private MobSpawner mobSpawner;
@@ -72,16 +79,13 @@ public class ReinforcementListener implements Listener {
         this.plugin = plugin;
     }
     
-    /**
-     * Set the mob spawner implementation.
-     * This is called by CaptureZones during initialization.
-     */
     public void setMobSpawner(MobSpawner mobSpawner) {
         this.mobSpawner = mobSpawner;
         plugin.getLogger().info("Reinforcement mob spawner set to: " + mobSpawner.getName());
     }
 
     @EventHandler
+
     public void onEntityTarget(EntityTargetEvent event) {
         // Apply configurable reinforcement targeting policy.
         if (!event.getEntity().hasMetadata(META_REINFORCEMENT)) {
@@ -110,19 +114,17 @@ public class ReinforcementListener implements Listener {
     }
 
     @EventHandler
+
     public void onEntityDeath(EntityDeathEvent event) {
-        // Check if this is a reinforcement mob
         if (!event.getEntity().hasMetadata(META_REINFORCEMENT)) {
             return;
         }
 
-        // Clear all loot drops but keep XP
         event.getDrops().clear();
 
         String pointId = event.getEntity().getMetadata(META_REINFORCEMENT).get(0).asString();
         CaptureSession session = plugin.getActiveSession(pointId);
 
-        // Only reward if there's an active capture
         if (session != null && session.isActive() && !session.isInPreparationPhase()) {
             int secondsReduced = getTimerReductionSeconds(pointId, event.getEntity());
             if (secondsReduced > 0) {
@@ -138,12 +140,10 @@ public class ReinforcementListener implements Listener {
                     )));
                 }
                 
-                // Check if we need to spawn a phase due to timer change
                 checkAndSpawnPhase(pointId);
             }
         }
 
-        // Remove from active reinforcements list
         List<UUID> reinforcements = activeReinforcements.get(pointId);
         if (reinforcements != null) {
             reinforcements.remove(event.getEntity().getUniqueId());
@@ -404,7 +404,6 @@ public class ReinforcementListener implements Listener {
             return;
         }
 
-        // Get active session to check time remaining
         CaptureSession session = plugin.getActiveSession(pointId);
         if (session == null || !session.isActive() || session.isInPreparationPhase()) {
             return;
@@ -674,7 +673,6 @@ public class ReinforcementListener implements Listener {
     }
 
     private boolean spawnReinforcementMob(CapturePoint point, CaptureSession session, CaptureOwner capturingOwner, List<UUID> reinforcements) {
-        // Check if mob spawner is initialized
         if (mobSpawner == null) {
             plugin.getLogger().warning("MobSpawner not initialized! Cannot spawn reinforcements.");
             return false;
@@ -728,7 +726,6 @@ public class ReinforcementListener implements Listener {
             return false;
         }
 
-        // Set metadata to mark as reinforcement
         mob.setMetadata(META_REINFORCEMENT, new FixedMetadataValue(plugin, pointId));
         mob.setMetadata("capture_point_id", new FixedMetadataValue(plugin, pointId));
         mob.setMetadata("capturing_town", new FixedMetadataValue(plugin, capturingOwner.getDisplayName()));
@@ -748,7 +745,6 @@ public class ReinforcementListener implements Listener {
             false
         ));
         
-        // Handle special mob types
         if (mob instanceof Slime) {
             ((Slime) mob).setSize(2); // Medium size
         }
@@ -800,7 +796,6 @@ public class ReinforcementListener implements Listener {
             }
         }
         
-        // Update target if we found one
         if (nearestTarget != null) {
             try {
                 creature.setTarget(nearestTarget);
@@ -861,9 +856,6 @@ public class ReinforcementListener implements Listener {
         return candidates;
     }
     
-    /**
-     * Starts a continuous tracking task for mobs in a capture zone
-     */
     private void startMobTracking(String pointId) {
         // Don't start multiple tracking tasks for the same point
         if (trackingTasks.containsKey(pointId)) {
@@ -873,7 +865,6 @@ public class ReinforcementListener implements Listener {
         long retargetIntervalTicks = getTargetRetargetIntervalTicks(pointId);
         
         BukkitTask task = plugin.getServer().getScheduler().runTaskTimer(plugin, () -> {
-            // Check if capture is still active
             if (!plugin.getActiveSessions().containsKey(pointId)) {
                 stopMobTracking(pointId);
                 return;
@@ -897,7 +888,6 @@ public class ReinforcementListener implements Listener {
                 return;
             }
             
-            // Update target for each mob
             for (UUID mobUUID : new ArrayList<>(reinforcements)) {
                 Entity mob = plugin.getServer().getEntity(mobUUID);
                 if (mob != null && mob.isValid() && !mob.isDead()) {
@@ -909,9 +899,6 @@ public class ReinforcementListener implements Listener {
         trackingTasks.put(pointId, task);
     }
     
-    /**
-     * Stops the mob tracking task for a capture zone
-     */
     private void stopMobTracking(String pointId) {
         BukkitTask task = trackingTasks.remove(pointId);
         if (task != null && !task.isCancelled()) {
@@ -969,16 +956,13 @@ public class ReinforcementListener implements Listener {
             return;
         }
 
-        // Start at phase 1
         currentPhase.put(pointId, 1);
         
         // Initial wave
         spawnReinforcementWave(pointId, point, 1);
         
-        // Start continuous mob tracking for smart AI
         startMobTracking(pointId);
 
-        // Check every second for timer mark based on wave interval
         BukkitTask task = plugin.getServer().getScheduler().runTaskTimer(plugin, () -> {
             if (!plugin.getActiveSessions().containsKey(pointId)) {
                 clearReinforcements(pointId);

@@ -9,9 +9,6 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.*;
 
-/**
- * Admin shop configuration interface
- */
 public class ShopEditorGUI {
     
     private final CaptureZones plugin;
@@ -41,9 +38,6 @@ public class ShopEditorGUI {
         this.admin = admin;
     }
     
-    /**
-     * Open main editor menu
-     */
     public void openMainMenu() {
         this.mode = EditorMode.MAIN_MENU;
         
@@ -103,7 +97,6 @@ public class ShopEditorGUI {
         }
         inv.setItem(13, stats);
         
-        // Manual Restock
         ItemStack restock = new ItemStack(Material.HOPPER);
         ItemMeta restockMeta = restock.getItemMeta();
         if (restockMeta != null) {
@@ -113,7 +106,6 @@ public class ShopEditorGUI {
         }
         inv.setItem(14, restock);
         
-        // Save & Close
         ItemStack save = new ItemStack(Material.EMERALD);
         ItemMeta saveMeta = save.getItemMeta();
         if (saveMeta != null) {
@@ -126,9 +118,6 @@ public class ShopEditorGUI {
         admin.openInventory(inv);
     }
     
-    /**
-     * Open settings configuration
-     */
     public void openSettings() {
         this.mode = EditorMode.SETTINGS;
         
@@ -222,9 +211,6 @@ public class ShopEditorGUI {
         admin.openInventory(inv);
     }
     
-    /**
-     * Open item placement editor
-     */
     public void openItemPlacement() {
         this.mode = EditorMode.ITEM_PLACEMENT;
         
@@ -270,9 +256,6 @@ public class ShopEditorGUI {
         admin.openInventory(inv);
     }
     
-    /**
-     * Open item configuration for a specific item
-     */
     public void openItemConfig(ShopItemConfig item) {
         this.mode = EditorMode.ITEM_CONFIG;
         this.editingItem = item;
@@ -378,7 +361,6 @@ public class ShopEditorGUI {
         }
         inv.setItem(16, sellPrice);
         
-        // Save button
         ItemStack save = new ItemStack(Material.EMERALD);
         ItemMeta saveMeta = save.getItemMeta();
         if (saveMeta != null) {
@@ -391,9 +373,6 @@ public class ShopEditorGUI {
         admin.openInventory(inv);
     }
     
-    /**
-     * Open statistics view
-     */
     public void openStatistics() {
         this.mode = EditorMode.STATISTICS;
         
@@ -448,11 +427,7 @@ public class ShopEditorGUI {
         admin.openInventory(inv);
     }
     
-    /**
-     * Create item display for editor
-     */
     private ItemStack createEditorItemDisplay(ShopItemConfig item) {
-        // Handle null displayItem by creating a new ItemStack from material
         ItemStack display = item.getDisplayItem() != null ? 
             item.getDisplayItem().clone() : 
             new ItemStack(item.getMaterial());
@@ -525,12 +500,19 @@ public class ShopEditorGUI {
     }
     
     // Getters
+
     public EditorMode getMode() { return mode; }
+
     public ShopItemConfig getEditingItem() { return editingItem; }
+
     public String getZoneId() { return zoneId; }
+
     public ShopData getShop() { return shop; }
+
     public Inventory getCurrentInventory() { return currentInventory; }
+
     public int getInfoSlot() { return infoSlot; }
+
     public int getBackSlot() { return backSlot; }
 
     private int findControlSlot(Inventory inv, int[] candidates, int reservedSlot) {

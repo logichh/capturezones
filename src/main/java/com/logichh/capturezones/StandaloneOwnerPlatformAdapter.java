@@ -11,16 +11,19 @@ import java.util.UUID;
 
 public final class StandaloneOwnerPlatformAdapter implements OwnerPlatformAdapter {
     @Override
+
     public String getPlatformKey() {
         return "standalone";
     }
 
     @Override
+
     public EnumSet<CaptureOwnerType> getSupportedOwnerTypes() {
         return EnumSet.of(CaptureOwnerType.PLAYER);
     }
 
     @Override
+
     public String resolveOwnerName(Player player, CaptureOwnerType ownerType) {
         if (player == null || ownerType == null) {
             return null;
@@ -32,6 +35,7 @@ public final class StandaloneOwnerPlatformAdapter implements OwnerPlatformAdapte
     }
 
     @Override
+
     public boolean doesPlayerMatchOwner(Player player, String ownerName, CaptureOwnerType ownerType) {
         if (player == null || ownerName == null || ownerType == null) {
             return false;
@@ -43,6 +47,7 @@ public final class StandaloneOwnerPlatformAdapter implements OwnerPlatformAdapte
     }
 
     @Override
+
     public List<String> getAvailableOwners(CaptureOwnerType ownerType) {
         if (ownerType != CaptureOwnerType.PLAYER) {
             return Collections.emptyList();
@@ -56,6 +61,7 @@ public final class StandaloneOwnerPlatformAdapter implements OwnerPlatformAdapte
     }
 
     @Override
+
     public String normalizeOwnerName(String ownerName, CaptureOwnerType ownerType) {
         if (ownerType != CaptureOwnerType.PLAYER || ownerName == null) {
             return null;
@@ -65,31 +71,37 @@ public final class StandaloneOwnerPlatformAdapter implements OwnerPlatformAdapte
     }
 
     @Override
+
     public boolean ownerExists(String ownerName, CaptureOwnerType ownerType) {
         return normalizeOwnerName(ownerName, ownerType) != null;
     }
 
     @Override
+
     public boolean depositControlReward(String ownerName, double amount, String reason, CaptureOwnerType ownerType) {
         return false;
     }
 
     @Override
+
     public boolean depositFirstCaptureBonus(UUID playerId, double amount, String reason) {
         return false;
     }
 
     @Override
+
     public String resolveMapColorHex(String ownerName, CaptureOwnerType ownerType, String fallbackHex) {
         return fallbackHex;
     }
 
     @Override
+
     public boolean isPlayerInSameTown(Player player, CaptureOwner owner) {
         return false;
     }
 
     @Override
+
     public boolean isPlayerInSameNation(Player player, CaptureOwner owner) {
         return false;
     }

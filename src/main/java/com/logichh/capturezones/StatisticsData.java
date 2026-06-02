@@ -4,25 +4,16 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * Data model for storing comprehensive capture zone statistics.
- * Tracks per-player, per-town, and per-zone statistics.
- */
 public class StatisticsData {
-    
-    // Player statistics
+
     private Map<UUID, PlayerStats> playerStats = new HashMap<>();
-    
-    // Town statistics
+
     private Map<String, TownStats> townStats = new HashMap<>();
-    
-    // Zone statistics
+
     private Map<String, ZoneStats> zoneStats = new HashMap<>();
-    
-    // Server-wide records
+
     private ServerRecords serverRecords = new ServerRecords();
-    
-    // Last reset timestamp
+
     private long lastReset = System.currentTimeMillis();
     
     public PlayerStats getPlayerStats(UUID playerId) {
@@ -68,10 +59,6 @@ public class StatisticsData {
     public long getLastReset() {
         return lastReset;
     }
-    
-    /**
-     * Player-specific statistics
-     */
     public static class PlayerStats {
         public int totalCaptures = 0;
         public int failedCaptures = 0;
@@ -94,10 +81,6 @@ public class StatisticsData {
             return total == 0 ? 0 : (double) totalCaptures / total * 100;
         }
     }
-    
-    /**
-     * Town-specific statistics
-     */
     public static class TownStats {
         public int totalCaptures = 0;
         public int failedCaptures = 0;
@@ -121,10 +104,6 @@ public class StatisticsData {
             return totalCaptures == 0 ? 0 : (double) totalHoldTime / totalCaptures;
         }
     }
-    
-    /**
-     * Zone-specific statistics
-     */
     public static class ZoneStats {
         public int totalCaptures = 0;
         public int failedAttempts = 0;
@@ -144,10 +123,6 @@ public class StatisticsData {
             return totalCaptures == 0 ? 0 : (double) (fastestCapture + longestCapture) / 2;
         }
     }
-    
-    /**
-     * Server-wide records and milestones
-     */
     public static class ServerRecords {
         public long firstCaptureTime = 0;
         public String firstCapturingTown = "";

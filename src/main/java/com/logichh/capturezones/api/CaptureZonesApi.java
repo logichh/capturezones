@@ -5,11 +5,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-/**
- * Stable addon-facing API for CaptureZones.
- *
- * Third-party plugins should resolve this API via Bukkit's ServicesManager.
- */
 public interface CaptureZonesApi {
     String API_VERSION = "1.0.0";
 

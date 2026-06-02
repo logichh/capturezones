@@ -13,11 +13,6 @@ import java.time.DayOfWeek;
 import java.util.*;
 import java.util.logging.Logger;
 
-/**
- * Manages per-zone configuration files.
- * Each zone has its own zones/{zone_id}_config.yml file with complete settings.
- * Falls back to zone-template.yml defaults if zone config doesn't exist.
- */
 public class ZoneConfigManager {
     
     private final CaptureZones plugin;
@@ -93,14 +88,10 @@ public class ZoneConfigManager {
         loadZoneDefaults();
     }
     
-    /**
-     * Load all zone configurations
-     */
     public void loadAllZoneConfigs() {
         zoneConfigs.clear();
         warnedSettingIssues.clear();
-        
-        // Load config for each existing zone
+
         for (String zoneId : plugin.getCapturePoints().keySet()) {
             loadZoneConfig(zoneId);
         }
@@ -113,9 +104,6 @@ public class ZoneConfigManager {
         loadZoneDefaults();
     }
     
-    /**
-     * Load configuration for a specific zone
-     */
     public FileConfiguration loadZoneConfig(String zoneId) {
         File zoneConfigFile = getZoneConfigFile(zoneId);
         
@@ -143,9 +131,6 @@ public class ZoneConfigManager {
         }
     }
     
-    /**
-     * Generate a new zone config file from the zone template
-     */
     public boolean generateZoneConfig(String zoneId) {
         ensureZoneConfigsFolder();
         File zoneConfigFile = getZoneConfigFile(zoneId);
@@ -234,9 +219,6 @@ public class ZoneConfigManager {
         return Math.max(contentStart, 0);
     }
     
-    /**
-     * Deep copy a configuration section
-     */
     private void copySection(ConfigurationSection source, ConfigurationSection target) {
         for (String key : source.getKeys(false)) {
             if (source.isConfigurationSection(key)) {
@@ -248,9 +230,6 @@ public class ZoneConfigManager {
         }
     }
     
-    /**
-     * Get configuration for a specific zone
-     */
     public FileConfiguration getZoneConfig(String zoneId) {
         FileConfiguration config = getRawZoneConfig(zoneId);
         if (config != null) {
@@ -264,16 +243,10 @@ public class ZoneConfigManager {
         return plugin.getConfig();
     }
     
-    /**
-     * Get a setting for a specific zone with fallback
-     */
     public Object getZoneSetting(String zoneId, String path, Object defaultValue) {
         return resolveSetting(zoneId, path, defaultValue).value;
     }
-    
-    /**
-     * Get string setting
-     */
+
     public String getString(String zoneId, String path, String defaultValue) {
         for (ResolvedSetting candidate : collectSettingCandidates(zoneId, path, defaultValue)) {
             String value = toStringValue(candidate.value);
@@ -286,9 +259,6 @@ public class ZoneConfigManager {
         return defaultValue;
     }
     
-    /**
-     * Get int setting
-     */
     public int getInt(String zoneId, String path, int defaultValue) {
         for (ResolvedSetting candidate : collectSettingCandidates(zoneId, path, defaultValue)) {
             Integer value = toIntValue(candidate.value);
@@ -301,9 +271,6 @@ public class ZoneConfigManager {
         return defaultValue;
     }
     
-    /**
-     * Get double setting
-     */
     public double getDouble(String zoneId, String path, double defaultValue) {
         for (ResolvedSetting candidate : collectSettingCandidates(zoneId, path, defaultValue)) {
             Double value = toDoubleValue(candidate.value);
@@ -328,9 +295,6 @@ public class ZoneConfigManager {
         return defaultValue;
     }
     
-    /**
-     * Get boolean setting
-     */
     public boolean getBoolean(String zoneId, String path, boolean defaultValue) {
         for (ResolvedSetting candidate : collectSettingCandidates(zoneId, path, defaultValue)) {
             Boolean value = toBooleanValue(candidate.value);
@@ -343,9 +307,6 @@ public class ZoneConfigManager {
         return defaultValue;
     }
     
-    /**
-     * Get list setting
-     */
     public List<?> getList(String zoneId, String path, List<?> defaultValue) {
         for (ResolvedSetting candidate : collectSettingCandidates(zoneId, path, defaultValue)) {
             if (candidate.value instanceof List<?>) {
@@ -356,9 +317,6 @@ public class ZoneConfigManager {
         return defaultValue;
     }
     
-    /**
-     * Get configuration section
-     */
     public ConfigurationSection getSection(String zoneId, String path) {
         for (ResolvedSetting candidate : collectSettingCandidates(zoneId, path, null)) {
             if (candidate.value instanceof ConfigurationSection) {
@@ -374,9 +332,6 @@ public class ZoneConfigManager {
         return null;
     }
     
-    /**
-     * Set a value in zone config and save
-     */
     public boolean setZoneSetting(String zoneId, String path, Object value) {
         FileConfiguration zoneConfig = getRawZoneConfig(zoneId);
         if (zoneConfig == null) {
@@ -523,6 +478,7 @@ public class ZoneConfigManager {
     private boolean isEnumStringPath(String path) {
         return "rewards.reward-type".equals(path)
             || "rewards.hourly-mode".equals(path)
+            || "rewards.money.payout-mode".equals(path)
             || "rewards.item-rewards.inventory-full-behavior".equals(path)
             || "rewards.permission-modifiers.conflict-policy".equals(path)
             || "reinforcements.mythicmobs.spawn-mode".equals(path)
@@ -682,6 +638,21 @@ public class ZoneConfigManager {
             return null;
         }
 
+        if ("rewards.money.payout-mode".equals(path)) {
+            String normalizedMode = normalized
+                .replace('-', '_')
+                .replace(' ', '_')
+                .toUpperCase(Locale.ROOT);
+            if ("OWNER_ACCOUNT".equals(normalizedMode)
+                || "SPLIT_ONLINE".equals(normalizedMode)
+                || "EACH_ONLINE".equals(normalizedMode)
+                || "EACH_RESIDENT".equals(normalizedMode)) {
+                return normalizedMode;
+            }
+            warnRejectedValue(zoneId, path, candidate, "expected one of: OWNER_ACCOUNT, SPLIT_ONLINE, EACH_ONLINE, EACH_RESIDENT");
+            return null;
+        }
+
         if ("rewards.item-rewards.inventory-full-behavior".equals(path)) {
             if ("drop".equalsIgnoreCase(normalized) || "cancel".equalsIgnoreCase(normalized)) {
                 return normalized.toUpperCase(Locale.ROOT);
@@ -775,7 +746,12 @@ public class ZoneConfigManager {
             case "hologram.max-lines":
                 return new IntRange(1, 20);
             case "rewards.hourly-interval":
+            case "rewards.money.max-recipients":
                 return new IntRange(1, 86400);
+            case "rewards.money.batch-size":
+                return new IntRange(1, 250);
+            case "rewards.potion-effects.duration-ticks":
+                return new IntRange(40, 72000);
             case "reinforcements.wave-interval":
                 return new IntRange(1, 3600);
             case "reinforcements.mobs-per-wave":
@@ -886,9 +862,6 @@ public class ZoneConfigManager {
         }
     }
     
-    /**
-     * Save a zone's configuration file
-     */
     public boolean saveZoneConfig(String zoneId) {
         FileConfiguration zoneConfig = zoneConfigs.get(zoneId);
         if (zoneConfig == null) {
@@ -912,9 +885,6 @@ public class ZoneConfigManager {
         }
     }
     
-    /**
-     * Delete a zone's configuration file (with backup)
-     */
     public boolean deleteZoneConfig(String zoneId, boolean createBackup) {
         File zoneConfigFile = getZoneConfigFile(zoneId);
         
@@ -944,25 +914,16 @@ public class ZoneConfigManager {
         }
     }
     
-    /**
-     * Reload a zone's configuration from disk
-     */
     public boolean reloadZoneConfig(String zoneId) {
         zoneConfigs.remove(zoneId);
         FileConfiguration config = loadZoneConfig(zoneId);
         return config != null;
     }
     
-    /**
-     * Get all loaded zone IDs
-     */
     public Set<String> getLoadedZones() {
         return new HashSet<>(zoneConfigs.keySet());
     }
-    
-    /**
-     * Check if zone has its own config file
-     */
+
     public boolean hasZoneConfig(String zoneId) {
         if (getZoneConfigFile(zoneId).exists()) {
             return true;
@@ -970,10 +931,6 @@ public class ZoneConfigManager {
         return getLegacyZoneConfigFile(zoneId).exists();
     }
     
-    /**
-     * Migrate existing zones to new config system
-     * Called on first load after update
-     */
     public void migrateExistingZones() {
         logger.info("Checking for zones without individual configs...");
         
@@ -1003,9 +960,6 @@ public class ZoneConfigManager {
         }
     }
     
-    /**
-     * Get the default value for a setting from the zone template
-     */
     public Object getZoneDefault(String path) {
         if (zoneDefaults != null && zoneDefaults.contains(path)) {
             return zoneDefaults.get(path);
@@ -1172,5 +1126,4 @@ public class ZoneConfigManager {
         }
     }
 }
-
 

@@ -11,22 +11,26 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
 public final class TownyOwnerPlatformAdapter implements OwnerPlatformAdapter {
     @Override
+
     public String getPlatformKey() {
         return "towny";
     }
 
     @Override
+
     public EnumSet<CaptureOwnerType> getSupportedOwnerTypes() {
         return EnumSet.of(CaptureOwnerType.PLAYER, CaptureOwnerType.TOWN, CaptureOwnerType.NATION);
     }
 
     @Override
+
     public String resolveOwnerName(Player player, CaptureOwnerType ownerType) {
         if (player == null || ownerType == null) {
             return null;
@@ -45,6 +49,7 @@ public final class TownyOwnerPlatformAdapter implements OwnerPlatformAdapter {
     }
 
     @Override
+
     public boolean doesPlayerMatchOwner(Player player, String ownerName, CaptureOwnerType ownerType) {
         if (player == null || ownerName == null || ownerType == null) {
             return false;
@@ -54,6 +59,7 @@ public final class TownyOwnerPlatformAdapter implements OwnerPlatformAdapter {
     }
 
     @Override
+
     public List<String> getAvailableOwners(CaptureOwnerType ownerType) {
         if (ownerType == null) {
             return Collections.emptyList();
@@ -96,6 +102,7 @@ public final class TownyOwnerPlatformAdapter implements OwnerPlatformAdapter {
     }
 
     @Override
+
     public String normalizeOwnerName(String ownerName, CaptureOwnerType ownerType) {
         if (ownerName == null || ownerType == null) {
             return null;
@@ -140,6 +147,7 @@ public final class TownyOwnerPlatformAdapter implements OwnerPlatformAdapter {
     }
 
     @Override
+
     public String resolveOwnerId(String ownerName, CaptureOwnerType ownerType) {
         if (ownerName == null || ownerType == null) {
             return null;
@@ -155,11 +163,13 @@ public final class TownyOwnerPlatformAdapter implements OwnerPlatformAdapter {
     }
 
     @Override
+
     public boolean ownerExists(String ownerName, CaptureOwnerType ownerType) {
         return normalizeOwnerName(ownerName, ownerType) != null;
     }
 
     @Override
+
     public boolean depositControlReward(String ownerName, double amount, String reason, CaptureOwnerType ownerType) {
         if (ownerType != CaptureOwnerType.TOWN) {
             return false;
@@ -177,6 +187,7 @@ public final class TownyOwnerPlatformAdapter implements OwnerPlatformAdapter {
     }
 
     @Override
+
     public boolean depositControlReward(CaptureOwner owner, double amount, String reason) {
         if (owner == null || owner.getType() != CaptureOwnerType.TOWN) {
             return false;
@@ -194,6 +205,7 @@ public final class TownyOwnerPlatformAdapter implements OwnerPlatformAdapter {
     }
 
     @Override
+
     public boolean depositFirstCaptureBonus(UUID playerId, double amount, String reason) {
         if (playerId == null) {
             return false;
@@ -210,7 +222,82 @@ public final class TownyOwnerPlatformAdapter implements OwnerPlatformAdapter {
         }
     }
 
+    public List<Player> getOnlineOwnerPlayers(CaptureOwner owner) {
+        if (owner == null || owner.getType() == null) {
+            return Collections.emptyList();
+        }
+        List<Player> players = new ArrayList<>();
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (doesPlayerMatchOwner(player, owner)) {
+                players.add(player);
+            }
+        }
+        return players;
+    }
+
+    public List<String> getOwnerResidentNames(CaptureOwner owner) {
+        if (owner == null || owner.getType() == null) {
+            return Collections.emptyList();
+        }
+        try {
+            Set<String> names = new LinkedHashSet<>();
+            if (owner.getType() == CaptureOwnerType.PLAYER) {
+                Resident resident = resolveResident(owner);
+                if (resident != null && resident.getName() != null) {
+                    names.add(resident.getName());
+                }
+            } else if (owner.getType() == CaptureOwnerType.TOWN) {
+                Town town = resolveTown(owner);
+                if (town != null) {
+                    for (Resident resident : town.getResidents()) {
+                        if (resident != null && resident.getName() != null) {
+                            names.add(resident.getName());
+                        }
+                    }
+                }
+            } else if (owner.getType() == CaptureOwnerType.NATION) {
+                for (Town town : TownyAPI.getInstance().getTowns()) {
+                    if (town == null || !town.hasNation()) {
+                        continue;
+                    }
+                    try {
+                        if (!town.getNation().getName().equalsIgnoreCase(owner.getDisplayName())) {
+                            continue;
+                        }
+                        for (Resident resident : town.getResidents()) {
+                            if (resident != null && resident.getName() != null) {
+                                names.add(resident.getName());
+                            }
+                        }
+                    } catch (Exception ignored) {
+                        // Ignore broken nation or resident references.
+                    }
+                }
+            }
+            return new ArrayList<>(names);
+        } catch (Exception ex) {
+            return Collections.emptyList();
+        }
+    }
+
+    public boolean depositResidentReward(String residentName, double amount, String reason) {
+        if (residentName == null || residentName.trim().isEmpty() || amount <= 0.0) {
+            return false;
+        }
+        try {
+            Resident resident = TownyAPI.getInstance().getResident(residentName.trim());
+            if (resident == null || resident.getAccount() == null) {
+                return false;
+            }
+            resident.getAccount().deposit(amount, reason == null ? "Control reward" : reason);
+            return true;
+        } catch (Exception ex) {
+            return false;
+        }
+    }
+
     @Override
+
     public String resolveMapColorHex(String ownerName, CaptureOwnerType ownerType, String fallbackHex) {
         if (ownerName == null || ownerName.trim().isEmpty()) {
             return fallbackHex;
@@ -249,6 +336,7 @@ public final class TownyOwnerPlatformAdapter implements OwnerPlatformAdapter {
     }
 
     @Override
+
     public String resolveMapColorHex(CaptureOwner owner, String fallbackHex) {
         if (owner == null || owner.getType() == null) {
             return fallbackHex;
@@ -271,6 +359,7 @@ public final class TownyOwnerPlatformAdapter implements OwnerPlatformAdapter {
     }
 
     @Override
+
     public boolean doesPlayerMatchOwner(Player player, CaptureOwner owner) {
         if (player == null || owner == null || owner.getType() == null) {
             return false;
@@ -303,6 +392,7 @@ public final class TownyOwnerPlatformAdapter implements OwnerPlatformAdapter {
     }
 
     @Override
+
     public CaptureOwner refreshOwner(CaptureOwner owner) {
         if (owner == null || owner.getType() == null) {
             return owner;
@@ -343,6 +433,7 @@ public final class TownyOwnerPlatformAdapter implements OwnerPlatformAdapter {
     }
 
     @Override
+
     public boolean isPlayerInSameTown(Player player, CaptureOwner owner) {
         if (player == null || owner == null) {
             return false;
@@ -360,6 +451,7 @@ public final class TownyOwnerPlatformAdapter implements OwnerPlatformAdapter {
     }
 
     @Override
+
     public boolean isPlayerInSameNation(Player player, CaptureOwner owner) {
         if (player == null || owner == null) {
             return false;

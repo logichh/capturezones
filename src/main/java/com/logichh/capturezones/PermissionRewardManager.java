@@ -27,9 +27,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Logger;
 
-/**
- * Manages plugin-owned permission rewards (permanent and timed).
- */
 public class PermissionRewardManager implements Listener {
     private static final String DATA_FILE_NAME = "permission_rewards.yml";
     private static final long EXPIRATION_CHECK_INTERVAL_TICKS = 20L;
@@ -39,8 +36,11 @@ public class PermissionRewardManager implements Listener {
     private final File dataFile;
 
     // playerId -> permission -> sourceKey -> expiresAtMillis (0 = permanent)
+
     private final Map<UUID, Map<String, Map<String, Long>>> grants = new HashMap<>();
+
     private final Map<UUID, PermissionAttachment> attachments = new HashMap<>();
+
     private final Map<UUID, Set<String>> appliedPermissions = new HashMap<>();
 
     private BukkitTask expirationTask;
@@ -119,6 +119,7 @@ public class PermissionRewardManager implements Listener {
     }
 
     @EventHandler
+
     public void onPlayerJoin(PlayerJoinEvent event) {
         if (event == null || event.getPlayer() == null) {
             return;
@@ -132,6 +133,7 @@ public class PermissionRewardManager implements Listener {
     }
 
     @EventHandler
+
     public void onPlayerQuit(PlayerQuitEvent event) {
         if (event == null || event.getPlayer() == null) {
             return;

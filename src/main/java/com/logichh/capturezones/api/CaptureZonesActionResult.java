@@ -3,10 +3,6 @@ package com.logichh.capturezones.api;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
-
-/**
- * Canonical API mutation result payload.
- */
 public final class CaptureZonesActionResult {
     private final boolean success;
     private final String message;
@@ -53,3 +49,4 @@ public final class CaptureZonesActionResult {
         return Collections.unmodifiableMap(new LinkedHashMap<>(data));
     }
 }
+

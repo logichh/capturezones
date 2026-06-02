@@ -4,9 +4,6 @@ import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.configuration.ConfigurationSection;
 
-/**
- * Configuration for a single shop item
- */
 public class ShopItemConfig {
     private final Material material;
     private int slot;
@@ -42,37 +39,65 @@ public class ShopItemConfig {
     }
     
     // Getters
+
     public Material getMaterial() { return material; }
+
     public int getSlot() { return slot; }
+
     public boolean isBuyable() { return buyable; }
+
     public boolean isSellable() { return sellable; }
+
     public double getBuyPrice() { return buyPrice; }
+
     public double getSellPrice() { return sellPrice; }
+
     public int getStock() { return stock; }
+
     public int getMaxStock() { return maxStock; }
+
     public String getCategory() { return category; }
+
     public String getDisplayName() { return displayName; }
+
     public ItemStack getDisplayItem() { return displayItem; }
+
     public double getPriceMultiplier() { return priceMultiplier; }
+
     public long getLastPriceUpdate() { return lastPriceUpdate; }
+
     public int getTransactionCount() { return transactionCount; }
     
     // Setters
+
     public void setBuyable(boolean buyable) { this.buyable = buyable; }
+
     public void setSellable(boolean sellable) { this.sellable = sellable; }
+
     public void setBuyPrice(double buyPrice) { this.buyPrice = buyPrice; }
+
     public void setSellPrice(double sellPrice) { this.sellPrice = sellPrice; }
+
     public void setStock(int stock) { this.stock = Math.max(0, stock); }
+
     public void setMaxStock(int maxStock) { this.maxStock = maxStock; }
+
     public void setSlot(int slot) { this.slot = slot; }
+
     public void setCategory(String category) { this.category = category; }
+
     public void setDisplayName(String displayName) { this.displayName = displayName; }
+
     public void setDisplayItem(ItemStack displayItem) { this.displayItem = displayItem; }
+
     public void setPriceMultiplier(double multiplier) { this.priceMultiplier = multiplier; }
+
     public void setLastPriceUpdate(long time) { this.lastPriceUpdate = time; }
+
     public void setTransactionCount(int count) { this.transactionCount = count; }
     
     // Utility methods
+
     public boolean hasStock(int amount) {
         return maxStock == -1 || stock >= amount;
     }
@@ -110,6 +135,7 @@ public class ShopItemConfig {
     }
     
     // Serialization
+
     public void save(ConfigurationSection section) {
         section.set("material", material.name());
         section.set("slot", slot);

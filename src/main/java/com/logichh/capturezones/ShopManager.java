@@ -9,9 +9,6 @@ import org.bukkit.Material;
 import java.io.File;
 import java.util.*;
 
-/**
- * Manages all zone shops, transactions, and persistence
- */
 public class ShopManager {
     
     private final CaptureZones plugin;
@@ -34,10 +31,7 @@ public class ShopManager {
         loadAllShops();
         startPeriodicTasks();
     }
-    
-    /**
-     * Load all shop configurations
-     */
+
     public void loadAllShops() {
         shops.clear();
         pricingEngines.clear();
@@ -54,10 +48,7 @@ public class ShopManager {
             }
         }
     }
-    
-    /**
-     * Get or create shop for a zone
-     */
+
     public ShopData getShop(String zoneId) {
         return shops.computeIfAbsent(zoneId, id -> {
             ShopData shop = new ShopData(id);
@@ -112,10 +103,7 @@ public class ShopManager {
             return defaultValue;
         }
     }
-    
-    /**
-     * Save a shop configuration
-     */
+
     public void saveShop(String zoneId) {
         ShopData shop = shops.get(zoneId);
         if (shop != null) {
@@ -123,19 +111,13 @@ public class ShopManager {
             shop.save(file);
         }
     }
-    
-    /**
-     * Save all shops
-     */
+
     public void saveAllShops() {
         for (String zoneId : shops.keySet()) {
             saveShop(zoneId);
         }
     }
-    
-    /**
-     * Delete a shop
-     */
+
     public void deleteShop(String zoneId) {
         shops.remove(zoneId);
         pricingEngines.remove(zoneId);
@@ -144,10 +126,7 @@ public class ShopManager {
             file.delete();
         }
     }
-    
-    /**
-     * Check if player can access shop
-     */
+
     public boolean canAccessShop(Player player, String zoneId) {
         ShopData shop = shops.get(zoneId);
         if (shop == null || !shop.isEnabled()) {
@@ -158,13 +137,9 @@ public class ShopManager {
         if (zone == null) {
             return false;
         }
-        
-        // Check if player is in the zone
         if (!plugin.isWithinZone(zone, player.getLocation())) {
             return false;
         }
-        
-        // Check access mode
         ShopData.AccessMode accessMode = shop.getAccessMode();
 
         if (accessMode == ShopData.AccessMode.CONTROLLED_ONLY && plugin.isPointActive(zoneId)) {
@@ -182,7 +157,6 @@ public class ShopManager {
         }
         
         if (accessMode == ShopData.AccessMode.CONTROLLED_ONLY) {
-            // Any player from the controlling owner can use it
             if (controllingOwner != null) {
                 return plugin.doesPlayerMatchOwner(player, controllingOwner);
             }
@@ -190,7 +164,6 @@ public class ShopManager {
         }
         
         if (accessMode == ShopData.AccessMode.OWNER_ONLY) {
-            // Only the controlling owner can use it
             if (controllingOwner != null) {
                 return plugin.doesPlayerMatchOwner(player, controllingOwner);
             }
@@ -207,10 +180,7 @@ public class ShopManager {
         }
         return shop.getAccessMode() == ShopData.AccessMode.CONTROLLED_ONLY && plugin.isPointActive(zoneId);
     }
-    
-    /**
-     * Process a buy transaction
-     */
+
     public boolean processBuy(Player player, String zoneId, int slot, int quantity) {
         ShopEconomyAdapter economy = plugin.getOrCreateShopEconomyAdapter();
         if (economy == null || !economy.isAvailable()) {
@@ -225,24 +195,16 @@ public class ShopManager {
             player.sendMessage(Messages.get("errors.shop.not-buyable"));
             return false;
         }
-        
-        // Check stock (skip for infinite stock shops)
         if (shop.getStockSystem() != ShopData.StockSystem.INFINITE && !item.hasStock(quantity)) {
             player.sendMessage(Messages.get("errors.shop.out-of-stock"));
             return false;
         }
-        
-        // Calculate cost
         double totalCost = item.getEffectiveBuyPrice() * quantity;
         ItemStack itemStack = createPurchaseItem(item, quantity);
-        
-        // Check inventory space before taking money or stock
         if (!canFit(player.getInventory(), itemStack, quantity)) {
             player.sendMessage(Messages.get("errors.shop.inventory-full"));
             return false;
         }
-        
-        // Check player balance
         try {
             if (!economy.hasAccount(player)) {
                 player.sendMessage(Messages.get("errors.shop.no-account"));
@@ -255,37 +217,24 @@ public class ShopManager {
                 )));
                 return false;
             }
-            
-            // Process payment
             if (!economy.withdraw(player, totalCost, "Shop purchase")) {
                 player.sendMessage(Messages.get("errors.shop.transaction-failed"));
                 return false;
             }
-            
-            // Give items
             Map<Integer, ItemStack> leftovers = player.getInventory().addItem(itemStack);
             if (!leftovers.isEmpty()) {
-                // Refund if inventory couldn't accept the items
                 economy.deposit(player, totalCost, "Shop purchase refund");
                 player.sendMessage(Messages.get("errors.shop.inventory-full"));
                 return false;
             }
-            
-            // Update stock
             if (shop.getStockSystem() != ShopData.StockSystem.INFINITE) {
                 item.removeStock(quantity);
             }
-            
-            // Update pricing
             DynamicPricing pricing = pricingEngines.get(zoneId);
             if (pricing != null) {
                 pricing.onBuyTransaction(item, quantity);
             }
-            
-            // Record transaction
             shop.recordBuy(quantity, totalCost);
-            
-            // Save
             saveShop(zoneId);
             
             player.sendMessage(Messages.get("messages.shop.buy-success", Map.of(
@@ -302,10 +251,7 @@ public class ShopManager {
             return false;
         }
     }
-    
-    /**
-     * Process a sell transaction
-     */
+
     public boolean processSell(Player player, String zoneId, int slot, int quantity) {
         ShopEconomyAdapter economy = plugin.getOrCreateShopEconomyAdapter();
         if (economy == null || !economy.isAvailable()) {
@@ -320,8 +266,6 @@ public class ShopManager {
             player.sendMessage(Messages.get("errors.shop.not-sellable"));
             return false;
         }
-        
-        // Check player has items
         ItemStack checkStack = new ItemStack(item.getMaterial());
         int playerAmount = 0;
         for (ItemStack invItem : player.getInventory().getStorageContents()) {
@@ -334,8 +278,6 @@ public class ShopManager {
             player.sendMessage(Messages.get("errors.shop.insufficient-items"));
             return false;
         }
-        
-        // Calculate earnings
         double totalEarnings = item.getEffectiveSellPrice() * quantity;
         
         try {
@@ -343,8 +285,6 @@ public class ShopManager {
                 player.sendMessage(Messages.get("errors.shop.no-account"));
                 return false;
             }
-            
-            // Remove items from player
             int remaining = quantity;
             ItemStack[] storage = player.getInventory().getStorageContents();
             for (int i = 0; i < storage.length && remaining > 0; i++) {
@@ -360,28 +300,18 @@ public class ShopManager {
                     remaining -= removeAmount;
                 }
             }
-            
-            // Give money
             if (!economy.deposit(player, totalEarnings, "Shop sale")) {
                 player.sendMessage(Messages.get("errors.shop.transaction-failed"));
                 return false;
             }
-            
-            // Update stock
             if (shop.getStockSystem() != ShopData.StockSystem.INFINITE) {
                 item.addStock(quantity);
             }
-            
-            // Update pricing
             DynamicPricing pricing = pricingEngines.get(zoneId);
             if (pricing != null) {
                 pricing.onSellTransaction(item, quantity);
             }
-            
-            // Record transaction
             shop.recordSell(quantity, totalEarnings);
-            
-            // Save
             saveShop(zoneId);
             
             player.sendMessage(Messages.get("messages.shop.sell-success", Map.of(
@@ -398,10 +328,7 @@ public class ShopManager {
             return false;
         }
     }
-    
-    /**
-     * Manual restock for a shop
-     */
+
     public void restockShop(String zoneId) {
         ShopData shop = shops.get(zoneId);
         if (shop != null) {
@@ -409,12 +336,8 @@ public class ShopManager {
             saveShop(zoneId);
         }
     }
-    
-    /**
-     * Start periodic maintenance tasks
-     */
+
     private void startPeriodicTasks() {
-        // Auto-restock task (every 5 minutes)
         restockTask = plugin.getServer().getScheduler().runTaskTimer(plugin, () -> {
             for (Map.Entry<String, ShopData> entry : shops.entrySet()) {
                 ShopData shop = entry.getValue();
@@ -425,18 +348,13 @@ public class ShopManager {
                 }
             }
         }, 6000L, 6000L); // Every 5 minutes
-        
-        // Dynamic pricing update task (every hour)
         pricingTask = plugin.getServer().getScheduler().runTaskTimer(plugin, () -> {
             for (Map.Entry<String, DynamicPricing> entry : pricingEngines.entrySet()) {
                 entry.getValue().updateAllPrices();
             }
         }, 72000L, 72000L); // Every hour
     }
-    
-    /**
-     * Shutdown and cleanup tasks
-     */
+
     public void shutdown() {
         if (restockTask != null && !restockTask.isCancelled()) {
             restockTask.cancel();

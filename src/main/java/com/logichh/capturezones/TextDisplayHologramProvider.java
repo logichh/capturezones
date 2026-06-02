@@ -25,9 +25,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Logger;
 
-/**
- * Built-in hologram provider using Bukkit TextDisplay entities.
- */
 public class TextDisplayHologramProvider implements HologramProvider {
     private static final String MANAGED_HOLOGRAM_TAG = "capturezones_hologram";
     private static final String RUNTIME_TAG_PREFIX = "czh_rt_";
@@ -57,6 +54,7 @@ public class TextDisplayHologramProvider implements HologramProvider {
     }
 
     @Override
+
     public boolean initialize() {
         this.runtimeTag = buildRuntimeTag();
         refreshLegacyCleanupMatchers();
@@ -67,16 +65,19 @@ public class TextDisplayHologramProvider implements HologramProvider {
     }
 
     @Override
+
     public boolean isAvailable() {
         return this.available;
     }
 
     @Override
+
     public String getName() {
         return "TextDisplay";
     }
 
     @Override
+
     public void createOrUpdate(String pointId, Location baseLocation, List<String> lines, double lineSpacing, boolean fixedOrientation) {
         if (!available || pointId == null || pointId.trim().isEmpty() || baseLocation == null || baseLocation.getWorld() == null) {
             return;
@@ -111,6 +112,7 @@ public class TextDisplayHologramProvider implements HologramProvider {
     }
 
     @Override
+
     public void remove(String pointId) {
         if (pointId == null || pointId.trim().isEmpty()) {
             return;
@@ -127,6 +129,7 @@ public class TextDisplayHologramProvider implements HologramProvider {
     }
 
     @Override
+
     public void cleanup() {
         unregisterChunkCleanupListener();
         for (String pointId : new ArrayList<>(pointDisplays.keySet())) {

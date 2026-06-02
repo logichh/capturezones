@@ -14,19 +14,15 @@ import org.bukkit.inventory.meta.SkullMeta;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Manages all statistics GUI menus with beautiful design and pagination.
- */
 public class StatisticsGUI {
     
     private final CaptureZones plugin;
     private final StatisticsManager statsManager;
-    
-    // Track active menu sessions
+
     private final Map<UUID, MenuSession> activeSessions = new HashMap<>();
+
     private final Map<UUID, Inventory> activeInventories = new HashMap<>();
-    
-    // Command usage cooldown
+
     private final Map<UUID, Long> commandCooldowns = new HashMap<>();
     private static final Material MAIN_BORDER_MATERIAL = Material.LIGHT_BLUE_STAINED_GLASS_PANE;
     private static final Material SUB_BORDER_MATERIAL = Material.GRAY_STAINED_GLASS_PANE;
@@ -53,10 +49,7 @@ public class StatisticsGUI {
         this.plugin = plugin;
         this.statsManager = statsManager;
     }
-    
-    /**
-     * Check if player can use stats command (cooldown check)
-     */
+
     public boolean canUseStatsCommand(Player player) {
         if (PermissionNode.has(player, "admin.stats.nocooldown")) {
             return true;
@@ -74,10 +67,7 @@ public class StatisticsGUI {
         long elapsed = System.currentTimeMillis() - lastUse;
         return elapsed >= cooldownMs;
     }
-    
-    /**
-     * Get remaining cooldown time in seconds
-     */
+
     public long getCooldownSeconds(Player player) {
         long cooldownMs = getCommandCooldownMs();
         if (cooldownMs <= 0) {
@@ -92,10 +82,7 @@ public class StatisticsGUI {
         long remaining = cooldownMs - elapsed;
         return remaining > 0 ? TimeUnit.MILLISECONDS.toSeconds(remaining) : 0;
     }
-    
-    /**
-     * Set cooldown for player
-     */
+
     public void setCooldown(Player player) {
         if (!PermissionNode.has(player, "admin.stats.nocooldown") && getCommandCooldownMs() > 0) {
             commandCooldowns.put(player.getUniqueId(), System.currentTimeMillis());
@@ -109,10 +96,7 @@ public class StatisticsGUI {
         }
         return TimeUnit.SECONDS.toMillis(cooldownSeconds);
     }
-    
-    /**
-     * Open main category selection menu
-     */
+
     public void openMainMenu(Player player) {
         Inventory inv = Bukkit.createInventory(null, 54, Messages.get("gui.stats.main.title"));
         applyFrame(inv, MAIN_BORDER_MATERIAL, FILL_MATERIAL);
@@ -161,10 +145,7 @@ public class StatisticsGUI {
         activeInventories.put(player.getUniqueId(), inv);
         player.openInventory(inv);
     }
-    
-    /**
-     * Open captures category menu
-     */
+
     public void openCapturesMenu(Player player, int page) {
         Inventory inv = Bukkit.createInventory(null, 54, Messages.get("gui.stats.captures.title"));
         applyFrame(inv, SUB_BORDER_MATERIAL, FILL_MATERIAL);
@@ -207,10 +188,7 @@ public class StatisticsGUI {
         activeInventories.put(player.getUniqueId(), inv);
         player.openInventory(inv);
     }
-    
-    /**
-     * Open combat category menu
-     */
+
     public void openCombatMenu(Player player, int page) {
         Inventory inv = Bukkit.createInventory(null, 54, Messages.get("gui.stats.combat.title"));
         applyFrame(inv, SUB_BORDER_MATERIAL, FILL_MATERIAL);
@@ -250,10 +228,7 @@ public class StatisticsGUI {
         activeInventories.put(player.getUniqueId(), inv);
         player.openInventory(inv);
     }
-    
-    /**
-     * Open control category menu
-     */
+
     public void openControlMenu(Player player, int page) {
         Inventory inv = Bukkit.createInventory(null, 54, Messages.get("gui.stats.control.title"));
         applyFrame(inv, SUB_BORDER_MATERIAL, FILL_MATERIAL);
@@ -278,10 +253,7 @@ public class StatisticsGUI {
         activeInventories.put(player.getUniqueId(), inv);
         player.openInventory(inv);
     }
-    
-    /**
-     * Open economy category menu
-     */
+
     public void openEconomyMenu(Player player, int page) {
         Inventory inv = Bukkit.createInventory(null, 54, Messages.get("gui.stats.economy.title"));
         applyFrame(inv, SUB_BORDER_MATERIAL, FILL_MATERIAL);
@@ -309,10 +281,7 @@ public class StatisticsGUI {
         activeInventories.put(player.getUniqueId(), inv);
         player.openInventory(inv);
     }
-    
-    /**
-     * Open activity category menu
-     */
+
     public void openActivityMenu(Player player, int page) {
         Inventory inv = Bukkit.createInventory(null, 54, Messages.get("gui.stats.activity.title"));
         applyFrame(inv, SUB_BORDER_MATERIAL, FILL_MATERIAL);
@@ -334,10 +303,7 @@ public class StatisticsGUI {
         activeInventories.put(player.getUniqueId(), inv);
         player.openInventory(inv);
     }
-    
-    /**
-     * Open records category menu
-     */
+
     public void openRecordsMenu(Player player, int page) {
         Inventory inv = Bukkit.createInventory(null, 54, Messages.get("gui.stats.records.title"));
         applyFrame(inv, SUB_BORDER_MATERIAL, FILL_MATERIAL);
@@ -346,43 +312,31 @@ public class StatisticsGUI {
         inv.setItem(HEADER_CENTER_SLOT, createHeaderItem(Material.BOOK, Messages.get("gui.stats.header.server-records")));
         
         StatisticsData.ServerRecords records = statsManager.getData().getServerRecords();
-        
-        // Fastest capture
         inv.setItem(10, createStatItem(Material.FEATHER,
             Messages.get("gui.stats.records.fastest.title"),
             Messages.get("gui.stats.records.fastest.time", Map.of("duration", formatDuration(records.fastestCaptureTime))),
             Messages.get("gui.stats.records.zone", Map.of("zone", String.valueOf(records.fastestCaptureZone)))
         ));
-        
-        // Longest capture
         inv.setItem(12, createStatItem(Material.TURTLE_HELMET,
             Messages.get("gui.stats.records.longest.title"),
             Messages.get("gui.stats.records.longest.time", Map.of("duration", formatDuration(records.longestCaptureTime))),
             Messages.get("gui.stats.records.zone", Map.of("zone", String.valueOf(records.longestCaptureZone)))
         ));
-        
-        // Most captured zone
         inv.setItem(14, createStatItem(Material.TARGET,
             Messages.get("gui.stats.records.most-captured.title"),
             Messages.get("gui.stats.records.most-captured.zone", Map.of("zone", String.valueOf(records.mostCapturedZone))),
             Messages.get("gui.stats.records.captures", Map.of("count", String.valueOf(records.mostCapturesCount)))
         ));
-        
-        // Most profitable zone
         inv.setItem(16, createStatItem(Material.GOLD_BLOCK,
             Messages.get("gui.stats.records.most-profitable.title"),
             Messages.get("gui.stats.records.most-profitable.zone", Map.of("zone", String.valueOf(records.mostProfitableZone))),
             Messages.get("gui.stats.records.total", Map.of("amount", String.format("%.2f", records.mostProfitableReward)))
         ));
-        
-        // Dominant town
         inv.setItem(20, createStatItem(Material.WHITE_BANNER,
             Messages.get("gui.stats.records.dominant-town.title"),
             Messages.get("gui.stats.records.dominant-town.town", Map.of("town", String.valueOf(records.dominantTown))),
             Messages.get("gui.stats.records.captures", Map.of("count", String.valueOf(records.dominantTownCaptures)))
         ));
-        
-        // First capture
         inv.setItem(22, createStatItem(Material.NETHER_STAR,
             Messages.get("gui.stats.records.first-capture.title"),
             records.firstCaptureTime > 0
@@ -392,15 +346,11 @@ public class StatisticsGUI {
             Messages.get("gui.stats.records.town", Map.of("town", String.valueOf(records.firstCapturingTown))),
             Messages.get("gui.stats.records.player", Map.of("player", String.valueOf(records.firstCapturingPlayer)))
         ));
-        
-        // Most deadly zone
         inv.setItem(24, createStatItem(Material.SKELETON_SKULL,
             Messages.get("gui.stats.records.most-deadly.title"),
             Messages.get("gui.stats.records.most-deadly.zone", Map.of("zone", String.valueOf(records.mostDeadlyZone))),
             Messages.get("gui.stats.records.deaths", Map.of("count", String.valueOf(records.mostDeaths)))
         ));
-        
-        // Server totals
         inv.setItem(31, createStatItem(Material.DIAMOND,
             Messages.get("gui.stats.records.server-totals.title"),
             Messages.get("gui.stats.records.server.captures", Map.of("count", String.valueOf(records.totalServerCaptures))),
@@ -413,10 +363,7 @@ public class StatisticsGUI {
         activeInventories.put(player.getUniqueId(), inv);
         player.openInventory(inv);
     }
-    
-    /**
-     * Handle menu click
-     */
+
     public void handleClick(Player player, int slot, Inventory inv) {
         MenuSession session = activeSessions.get(player.getUniqueId());
         if (session == null) return;
@@ -449,10 +396,7 @@ public class StatisticsGUI {
             case 33: openRecordsMenu(player, 0); break;
         }
     }
-    
-    /**
-     * Close menu for player
-     */
+
     public void closeMenu(Player player) {
         activeSessions.remove(player.getUniqueId());
         activeInventories.remove(player.getUniqueId());
@@ -482,8 +426,6 @@ public class StatisticsGUI {
             plainTitle.equals(ChatColor.stripColor(Messages.get("gui.stats.activity.title"))) ||
             plainTitle.equals(ChatColor.stripColor(Messages.get("gui.stats.records.title")));
     }
-    
-    // ==================== HELPER METHODS ====================
     
     private void applyFrame(Inventory inv, Material borderMaterial, Material fillMaterial) {
         ItemStack border = createFiller(borderMaterial);
@@ -635,8 +577,6 @@ public class StatisticsGUI {
         }
     }
     
-    // ==================== INNER CLASSES ====================
-    
     private static class MenuSession {
         final MenuType type;
         final int page;
@@ -651,5 +591,4 @@ public class StatisticsGUI {
         MAIN, CAPTURES, COMBAT, CONTROL, ECONOMY, ACTIVITY, RECORDS
     }
 }
-
 

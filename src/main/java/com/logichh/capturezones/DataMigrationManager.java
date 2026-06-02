@@ -29,11 +29,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.logging.Logger;
 
-/**
- * Add-missing-only schema migration manager for plugin-owned files.
- * Existing values are never overwritten.
- */
 public final class DataMigrationManager {
+
     private static final Object TYPE_INCOMPATIBLE = new Object();
     private final CaptureZones plugin;
     private final Logger logger;
@@ -53,10 +50,6 @@ public final class DataMigrationManager {
         migrateStatisticsFile();
     }
 
-    /**
-     * Restore primary YAML templates as exact raw copies from the plugin jar.
-     * This preserves banner/comments/order from bundled resources.
-     */
     public void restorePrimaryTemplatesExact() {
         restoreBundledResourceExact("config.yml", new File(plugin.getDataFolder(), "config.yml"));
         restoreBundledResourceExact("zone-template.yml", new File(plugin.getDataFolder(), "zone-template.yml"));

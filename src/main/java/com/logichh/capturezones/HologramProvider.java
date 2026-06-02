@@ -4,9 +4,6 @@ import org.bukkit.Location;
 
 import java.util.List;
 
-/**
- * Abstraction for hologram rendering backends.
- */
 public interface HologramProvider {
     boolean initialize();
 

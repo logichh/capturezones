@@ -31,11 +31,8 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.scheduler.BukkitTask;
 
-/**
- * Optional King of the Hill subsystem.
- * Isolated from regular capture sessions and enabled only through config.
- */
 public final class KothManager {
+
     private static final DateTimeFormatter SCHEDULE_TIME_FORMAT = DateTimeFormatter.ofPattern("H:mm");
     private static final int DEFAULT_CAPTURE_SECONDS = 180;
     private static final double DEFAULT_HOLD_RADIUS_BLOCKS = 5.0;

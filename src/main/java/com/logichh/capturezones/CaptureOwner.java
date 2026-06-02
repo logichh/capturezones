@@ -52,6 +52,7 @@ public final class CaptureOwner {
     }
 
     @Override
+
     public boolean equals(Object obj) {
         if (this == obj) {
             return true;
@@ -66,6 +67,7 @@ public final class CaptureOwner {
     }
 
     @Override
+
     public int hashCode() {
         return Objects.hash(
             this.type,
@@ -75,6 +77,7 @@ public final class CaptureOwner {
     }
 
     @Override
+
     public String toString() {
         return "CaptureOwner{type=" + this.type + ", id='" + this.id + "', displayName='" + this.displayName + "'}";
     }

@@ -12,6 +12,7 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class CapturePointInfoWindow {
+
     public static String formatInfoWindow(CapturePoint point) {
         CaptureZones plugin = (CaptureZones)CaptureZones.getPlugin(CaptureZones.class);
         ZoneConfigManager zoneManager = plugin.getZoneConfigManager();
@@ -92,7 +93,18 @@ public class CapturePointInfoWindow {
         replacements.put("%label_reward%", com.logichh.capturezones.Messages.get("dynmap.infowindow.label.reward"));
         replacements.put("%label_item_reward%", com.logichh.capturezones.Messages.get("dynmap.infowindow.label.item_reward"));
 
-        return applyPlaceholders(template, replacements);
+        String html = applyPlaceholders(template, replacements);
+        String conquestStatus = plugin.getConquestStatusLine(point.getId());
+        if (conquestStatus != null && !conquestStatus.isEmpty()) {
+            String conquestLine = "<div>&bull; "
+                + com.logichh.capturezones.Messages.get("dynmap.infowindow.label.conquest")
+                + " - " + conquestStatus + "</div>";
+            int insertAt = html.lastIndexOf("</div>");
+            html = insertAt >= 0
+                ? html.substring(0, insertAt) + conquestLine + html.substring(insertAt)
+                : html + conquestLine;
+        }
+        return html;
     }
 
     private static String formatKothInfoWindow(CapturePoint point, CaptureZones plugin, KothManager kothManager) {

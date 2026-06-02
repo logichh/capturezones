@@ -9,10 +9,6 @@ import org.dynmap.markers.MarkerSet;
 
 import java.util.logging.Logger;
 
-/**
- * Dynmap implementation of the MapProvider interface.
- * Integrates capture zones with Dynmap's marker system.
- */
 public class DynmapProvider implements MapProvider {
     
     private final CaptureZones plugin;
@@ -31,6 +27,7 @@ public class DynmapProvider implements MapProvider {
     }
     
     @Override
+
     public boolean initialize() {
         try {
             Plugin dynmapPlugin = plugin.getServer().getPluginManager().getPlugin("Dynmap");
@@ -48,7 +45,6 @@ public class DynmapProvider implements MapProvider {
                 return false;
             }
             
-            // Get or create marker set
             String markerSetId = plugin.getConfig().getString("dynmap.marker-set", "capturezones.markerset");
             String markerSetLabel = plugin.getConfig().getString("dynmap.marker-set-label", "Capture Zones");
             
@@ -69,7 +65,6 @@ public class DynmapProvider implements MapProvider {
             // Initialize area style
             this.areaStyle = new AreaStyle(plugin.getConfig(), "dynmap", this.markerAPI);
             
-            // Create updater
             this.townUpdater = new UpdateZones(plugin, this.markerSet, this.areaStyle);
             
             this.available = true;
@@ -87,16 +82,19 @@ public class DynmapProvider implements MapProvider {
     }
     
     @Override
+
     public boolean isAvailable() {
         return available && markerSet != null;
     }
     
     @Override
+
     public String getName() {
         return "Dynmap";
     }
     
     @Override
+
     public void createOrUpdateMarker(CapturePoint point) {
         if (!isAvailable() || point == null) {
             return;
@@ -114,6 +112,7 @@ public class DynmapProvider implements MapProvider {
     }
     
     @Override
+
     public void removeMarker(String pointId) {
         if (!isAvailable()) {
             return;
@@ -143,13 +142,13 @@ public class DynmapProvider implements MapProvider {
     }
     
     @Override
+
     public void updateAllMarkers() {
         if (!isAvailable()) {
             return;
         }
         
         try {
-            // Clear existing markers
             for (Marker marker : markerSet.getMarkers()) {
                 marker.deleteMarker();
             }
@@ -157,7 +156,6 @@ public class DynmapProvider implements MapProvider {
                 areaMarker.deleteMarker();
             }
             
-            // Update all capture zones
             for (CapturePoint point : plugin.getCapturePoints().values()) {
                 if (point != null && point.isShowOnMap() && plugin.shouldDisplayPoint(point)) {
                     townUpdater.updateMarker(point);
@@ -176,6 +174,7 @@ public class DynmapProvider implements MapProvider {
     }
     
     @Override
+
     public void cleanup() {
         if (markerSet != null) {
             try {
@@ -193,19 +192,15 @@ public class DynmapProvider implements MapProvider {
     }
     
     @Override
+
     public void reload() {
         cleanup();
         initialize();
         updateAllMarkers();
     }
     
-    /**
-     * Get the UpdateZones instance for this provider.
-     * Used for backward compatibility with existing code.
-     */
     public UpdateZones getTownUpdater() {
         return townUpdater;
     }
 }
-
 

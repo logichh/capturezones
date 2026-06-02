@@ -15,9 +15,6 @@ import java.net.URL;
 import java.util.concurrent.CompletableFuture;
 import java.util.logging.Logger;
 
-/**
- * Checks for plugin updates via Modrinth API
- */
 public class UpdateChecker {
     private static final String PROJECT_PAGE_URL = "https://modrinth.com/plugin/capturezones";
     
@@ -29,7 +26,7 @@ public class UpdateChecker {
     private String latestVersion = null;
     private String changelog = null;
     private long lastCheck = 0;
-    private static final long CACHE_DURATION = 6 * 60 * 60 * 1000; // 6 hours
+    private static final long CACHE_DURATION = 6 * 60 * 60 * 1000;
     
     public UpdateChecker(CaptureZones plugin) {
         this.plugin = plugin;
@@ -37,11 +34,7 @@ public class UpdateChecker {
         this.currentVersion = plugin.getDescription().getVersion();
     }
     
-    /**
-     * Check for updates asynchronously
-     */
     public CompletableFuture<Boolean> checkForUpdates() {
-        // Return cached result if still valid
         if (System.currentTimeMillis() - lastCheck < CACHE_DURATION && latestVersion != null) {
             return CompletableFuture.completedFuture(isUpdateAvailable());
         }
@@ -70,18 +63,15 @@ public class UpdateChecker {
                 }
                 reader.close();
                 
-                // Parse JSON response
                 JsonArray versions = JsonParser.parseString(response.toString()).getAsJsonArray();
                 if (versions.size() == 0) {
                     logger.warning("No versions found on Modrinth");
                     return false;
                 }
-                
-                // Get the latest version (first in array)
+
                 JsonObject latestVersionObj = versions.get(0).getAsJsonObject();
                 latestVersion = latestVersionObj.get("version_number").getAsString();
-                
-                // Get changelog (truncate if too long)
+
                 if (latestVersionObj.has("changelog")) {
                     String fullChangelog = latestVersionObj.get("changelog").getAsString();
                     changelog = fullChangelog.length() > 200 ? fullChangelog.substring(0, 200) + "..." : fullChangelog;
@@ -106,20 +96,12 @@ public class UpdateChecker {
         });
     }
     
-    /**
-     * Check if an update is available
-     */
     public boolean isUpdateAvailable() {
         if (latestVersion == null) return false;
         return compareVersions(currentVersion, latestVersion) < 0;
     }
-    
-    /**
-     * Compare two version strings (semantic versioning)
-     * Returns: -1 if v1 < v2, 0 if equal, 1 if v1 > v2
-     */
+
     private int compareVersions(String v1, String v2) {
-        // Remove 'v' prefix if present
         v1 = v1.replaceFirst("^v", "");
         v2 = v2.replaceFirst("^v", "");
         
@@ -137,23 +119,16 @@ public class UpdateChecker {
         
         return 0;
     }
-    
-    /**
-     * Parse version part (handles "1.0.9" and "1.0.9-SNAPSHOT")
-     */
+
     private int parseVersionPart(String part) {
         try {
-            // Remove any suffix like -SNAPSHOT, -beta, etc
             String numericPart = part.split("-")[0];
             return Integer.parseInt(numericPart);
         } catch (NumberFormatException e) {
             return 0;
         }
     }
-    
-    /**
-     * Show update notification to player
-     */
+
     public void showUpdateNotification(Player player) {
         if (!isUpdateAvailable()) return;
         if (plugin.isNotificationsDisabled(player)) return;
@@ -162,14 +137,12 @@ public class UpdateChecker {
             if (plugin.isNotificationsDisabled(player)) {
                 return;
             }
-            // Send title/subtitle
             player.sendTitle(
                 ChatColor.GOLD + "CaptureZones Update",
                 ChatColor.WHITE + currentVersion + ChatColor.DARK_GRAY + " -> " + ChatColor.GREEN + latestVersion,
                 8, 60, 16
             );
-            
-            // Send compact chat notification
+
             player.sendMessage("");
             player.sendMessage(ChatColor.DARK_GRAY + "" + ChatColor.STRIKETHROUGH + "----------------------------------------");
             player.sendMessage(ChatColor.YELLOW + "" + ChatColor.BOLD + "CaptureZones update available");
@@ -193,7 +166,7 @@ public class UpdateChecker {
             player.sendMessage(ChatColor.DARK_GRAY + "" + ChatColor.STRIKETHROUGH + "----------------------------------------");
             player.sendMessage("");
             
-        }, 60L); // Show after 3 seconds
+        }, 60L);
     }
 
     private String formatChangelogPreview(String text) {

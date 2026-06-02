@@ -47,16 +47,19 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+
     public String getApiVersion() {
         return API_VERSION;
     }
 
     @Override
+
     public String getPluginVersion() {
         return plugin.getDescription().getVersion();
     }
 
     @Override
+
     public Set<String> getCapabilities() {
         try {
             return sync(this::capabilitiesInternal);
@@ -67,56 +70,67 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+
     public Map<String, Object> getOverviewSnapshot() {
         return snapshot("overview", this::overviewSnapshot);
     }
 
     @Override
+
     public Map<String, Object> getFullSnapshot() {
         return snapshot("full", this::fullSnapshot);
     }
 
     @Override
+
     public Map<String, Object> getZonesSnapshot() {
         return snapshot("zones", this::zonesSnapshot);
     }
 
     @Override
+
     public Map<String, Object> getActiveCapturesSnapshot() {
         return snapshot("active-captures", this::capturesSnapshot);
     }
 
     @Override
+
     public Map<String, Object> getKothSnapshot() {
         return snapshot("koth", this::kothSnapshot);
     }
 
     @Override
+
     public Map<String, Object> getShopsSnapshot() {
         return snapshot("shops", this::shopsSnapshot);
     }
 
     @Override
+
     public Map<String, Object> getStatisticsSnapshot() {
         return snapshot("statistics", this::statisticsSnapshot);
     }
 
     @Override
+
     public Map<String, Object> getGlobalConfigSnapshot() {
         return snapshot("global-config", this::globalConfigSnapshot);
     }
 
     @Override
+
     public Map<String, Object> getZoneConfigSnapshot(String zoneId) {
         return snapshot("zone-config", () -> zoneConfigSnapshot(zoneId));
     }
 
     @Override
+
     public Map<String, Object> getDataFilesSnapshot(int maxDepth) {
         return snapshot("data-files", () -> dataFilesSnapshot(maxDepth));
     }
 
     @Override
+
     public CaptureZonesActionResult reloadAll() {
         return action("reload-all", () -> {
             plugin.reloadAll();
@@ -125,6 +139,7 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+
     public CaptureZonesActionResult reloadLang() {
         return action("reload-lang", () -> {
             plugin.reloadLang();
@@ -133,6 +148,7 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+
     public CaptureZonesActionResult repairSchema(boolean exactTemplates) {
         return action("repair-schema", () -> {
             plugin.repairAllConfigsAndData(exactTemplates);
@@ -144,6 +160,7 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+
     public CaptureZonesActionResult createZone(
         String id,
         String name,
@@ -176,6 +193,7 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+
     public CaptureZonesActionResult createCuboidZone(
         String id,
         String name,
@@ -212,6 +230,7 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+
     public CaptureZonesActionResult deleteZone(String pointId) {
         return action("delete-zone", () -> {
             if (blank(pointId)) {
@@ -224,6 +243,7 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+
     public CaptureZonesActionResult forceCapture(String pointId, String ownerName) {
         return action("force-capture", () -> {
             if (blank(pointId) || blank(ownerName)) {
@@ -240,6 +260,7 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+
     public CaptureZonesActionResult stopCapture(String pointId, String reason) {
         return action("stop-capture", () -> {
             if (blank(pointId)) {
@@ -257,6 +278,7 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+
     public CaptureZonesActionResult resetPoint(String pointId) {
         return action("reset-point", () -> {
             if (blank(pointId)) {
@@ -273,6 +295,7 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+
     public CaptureZonesActionResult resetAllPoints() {
         return action("reset-all-points", () -> {
             Map<String, Object> data = new LinkedHashMap<>();
@@ -282,6 +305,7 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+
     public CaptureZonesActionResult setPointType(String pointId, String type) {
         return action("set-point-type", () -> {
             if (blank(pointId) || blank(type)) {
@@ -298,6 +322,7 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+
     public CaptureZonesActionResult setPointActive(String pointId, boolean active) {
         return action("set-point-active", () -> {
             CapturePoint point = plugin.getCapturePoint(pointId == null ? null : pointId.trim());
@@ -314,6 +339,7 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+
     public CaptureZonesActionResult setPointPlayerLimits(String pointId, int minPlayers, int maxPlayers) {
         return action("set-point-player-limits", () -> {
             CapturePoint point = plugin.getCapturePoint(pointId == null ? null : pointId.trim());
@@ -332,6 +358,7 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+
     public CaptureZonesActionResult toggleChatMessages(boolean enabled) {
         return action("toggle-chat-messages", () -> {
             plugin.toggleChatMessages(enabled);
@@ -340,6 +367,7 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+
     public CaptureZonesActionResult setZoneConfigValue(String zoneId, String path, Object value) {
         return action("set-zone-config-value", () -> {
             ZoneConfigManager zcm = plugin.getZoneConfigManager();
@@ -367,6 +395,7 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+
     public CaptureZonesActionResult resetZoneConfigPath(String zoneId, String path) {
         return action("reset-zone-config-path", () -> {
             ZoneConfigManager zcm = plugin.getZoneConfigManager();
@@ -396,6 +425,7 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+
     public CaptureZonesActionResult resetZoneConfig(String zoneId) {
         return action("reset-zone-config", () -> {
             ZoneConfigManager zcm = plugin.getZoneConfigManager();
@@ -418,6 +448,7 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+
     public CaptureZonesActionResult reloadZoneConfig(String zoneId) {
         return action("reload-zone-config", () -> {
             ZoneConfigManager zcm = plugin.getZoneConfigManager();
@@ -440,6 +471,7 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+
     public CaptureZonesActionResult setGlobalConfigValue(String path, Object value, boolean reloadAfterSave) {
         return action("set-global-config-value", () -> {
             if (blank(path)) {
@@ -460,6 +492,7 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+
     public CaptureZonesActionResult saveGlobalConfig() {
         return action("save-global-config", () -> {
             plugin.saveConfig();
@@ -468,6 +501,7 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+
     public CaptureZonesActionResult runAdminCommand(String commandLine) {
         return action("run-admin-command", () -> {
             if (blank(commandLine)) {
@@ -493,6 +527,7 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+
     public CaptureZonesActionResult shopRestock(String zoneId) {
         return action("shop-restock", () -> {
             ShopManager shopManager = plugin.getOrCreateShopManagerIfEnabled();
@@ -510,6 +545,7 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+
     public CaptureZonesActionResult shopSetEnabled(String zoneId, boolean enabled) {
         return action("shop-set-enabled", () -> {
             ShopManager shopManager = plugin.getOrCreateShopManagerIfEnabled();
@@ -530,6 +566,7 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+
     public CaptureZonesActionResult shopReloadAll() {
         return action("shop-reload-all", () -> {
             ShopManager shopManager = plugin.getOrCreateShopManagerIfEnabled();
@@ -545,6 +582,7 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+
     public CaptureZonesActionResult kothStart(List<String> zoneIds, boolean announce) {
         return action("koth-start", () -> {
             KothManager kothManager = plugin.getKothManager();
@@ -583,6 +621,7 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+
     public CaptureZonesActionResult kothStop(String zoneId, String reason, boolean announce) {
         return action("koth-stop", () -> {
             KothManager kothManager = plugin.getKothManager();
@@ -612,6 +651,7 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+
     public CaptureZonesActionResult kothStopAll(String reason, boolean announce) {
         return action("koth-stop-all", () -> {
             KothManager kothManager = plugin.getKothManager();
@@ -630,6 +670,7 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+
     public CaptureZonesActionResult kothAssignZone(String zoneId, boolean assign) {
         return action("koth-assign-zone", () -> {
             if (blank(zoneId)) {
@@ -668,6 +709,7 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+
     public CaptureZonesActionResult removePlayerStats(UUID playerId) {
         return action("remove-player-stats", () -> {
             StatisticsManager statisticsManager = plugin.getStatisticsManager();
@@ -685,6 +727,7 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+
     public CaptureZonesActionResult resetAllStats() {
         return action("reset-all-stats", () -> {
             StatisticsManager statisticsManager = plugin.getStatisticsManager();

@@ -17,9 +17,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Logger;
 
-/**
- * Coordinates hologram lifecycle and rendering across capture zones.
- */
 public class HologramManager {
     private static final String PROVIDER_NONE = "NONE";
     private static final String PROVIDER_TEXT_DISPLAY = "TEXT_DISPLAY";
@@ -664,5 +661,4 @@ public class HologramManager {
         return value == null ? "" : value;
     }
 }
-
 

@@ -19,10 +19,6 @@ import java.util.Random;
 import java.util.Set;
 import java.util.logging.Logger;
 
-/**
- * MythicMobs implementation of the MobSpawner interface.
- * Spawns custom MythicMobs as reinforcements with configurable fallback.
- */
 public class MythicMobsHandler implements MobSpawner {
     
     private enum SpawnMode {
@@ -40,9 +36,13 @@ public class MythicMobsHandler implements MobSpawner {
     private final int defaultMixChance;
     private final MobSpawner fallbackSpawner;
     private boolean mythicMobsAvailable;
+
     private final Map<String, Set<String>> warnedInvalidMobs = new HashMap<>();
+
     private final Set<String> warnedEmptyMobLists = new HashSet<>();
+
     private final Map<String, Set<String>> warnedSpawnFailures = new HashMap<>();
+
     private final Set<String> warnedInvalidSpawnModes = new HashSet<>();
     
     public MythicMobsHandler(CaptureZones plugin, MobSpawner fallbackSpawner) {
@@ -51,7 +51,6 @@ public class MythicMobsHandler implements MobSpawner {
         this.random = new Random();
         this.fallbackSpawner = fallbackSpawner;
         
-        // Load configuration
         boolean fallbackEnabled = plugin.getConfig().getBoolean("reinforcements.mythicmobs.enabled", false);
         ZoneConfigManager zoneManager = plugin.getZoneConfigManager();
         this.defaultEnabled = zoneManager != null
@@ -76,7 +75,6 @@ public class MythicMobsHandler implements MobSpawner {
             : fallbackMixChance;
         this.defaultMixChance = clampMixChance(defaultMixChanceRaw);
         
-        // Check if MythicMobs is available
         this.mythicMobsAvailable = checkMythicMobsAvailability();
         
         if (this.defaultEnabled && this.mythicMobsAvailable) {
@@ -89,8 +87,8 @@ public class MythicMobsHandler implements MobSpawner {
     }
     
     @Override
+
     public LivingEntity spawnMob(String pointId, Location location, Player target) {
-        // Check if we should use MythicMobs
         if (!isMythicEnabled(pointId) || !mythicMobsAvailable) {
             return fallbackSpawner.spawnMob(pointId, location, target);
         }
@@ -125,7 +123,6 @@ public class MythicMobsHandler implements MobSpawner {
                 activeMob.getEntity().getBukkitEntity() instanceof LivingEntity) {
                 LivingEntity entity = (LivingEntity) activeMob.getEntity().getBukkitEntity();
                 
-                // Set target if specified (only works for Mob entities)
                 if (target != null && entity instanceof org.bukkit.entity.Mob) {
                     ((org.bukkit.entity.Mob) entity).setTarget(target);
                 }
@@ -154,11 +151,13 @@ public class MythicMobsHandler implements MobSpawner {
     }
     
     @Override
+
     public boolean isAvailable() {
         return mythicMobsAvailable || fallbackSpawner.isAvailable();
     }
     
     @Override
+
     public String getName() {
         if (mythicMobsAvailable) {
             return "MythicMobs (with vanilla fallback)";
@@ -167,6 +166,7 @@ public class MythicMobsHandler implements MobSpawner {
     }
     
     @Override
+
     public List<String> getConfiguredMobs() {
         List<String> result = new ArrayList<>();
         if (defaultEnabled && mythicMobsAvailable) {
@@ -177,9 +177,6 @@ public class MythicMobsHandler implements MobSpawner {
         return result;
     }
     
-    /**
-     * Check if MythicMobs plugin is loaded and available.
-     */
     private boolean checkMythicMobsAvailability() {
         try {
             Plugin mythicPlugin = plugin.getServer().getPluginManager().getPlugin("MythicMobs");
@@ -194,9 +191,6 @@ public class MythicMobsHandler implements MobSpawner {
         return false;
     }
     
-    /**
-     * Validate that configured mob types exist in MythicMobs.
-     */
     private void validateMobTypes() {
         if (!mythicMobsAvailable) return;
         
@@ -220,9 +214,6 @@ public class MythicMobsHandler implements MobSpawner {
         }
     }
     
-    /**
-     * Reload configuration from disk.
-     */
     public void reload() {
         this.defaultMobTypes.clear();
         this.defaultMobTypes.addAll(getDefaultMobTypes());

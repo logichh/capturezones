@@ -5,9 +5,11 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
 import java.awt.Color;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.HashMap;
@@ -15,10 +17,8 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
-/**
- * Discord Webhook Manager with rich embeds and per-zone rate limiting
- */
 public class DiscordWebhook {
     
     private final CaptureZones plugin;
@@ -37,12 +37,13 @@ public class DiscordWebhook {
     private String embedThumbnailUrl;
     private boolean embedTimestamp;
     
-    // Alert toggles
     private final Map<String, Boolean> alertToggles = new HashMap<>();
-    
-    // Per-zone rate limiting: zoneId -> last message timestamp
     private final Map<String, Long> lastMessageTime = new ConcurrentHashMap<>();
-    private long rateLimitMs = 1000; // 1 second per zone by default
+    private long rateLimitMs = 1000;
+        private final HttpClient httpClient = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .version(HttpClient.Version.HTTP_1_1)
+            .build();
     
     public DiscordWebhook(CaptureZones plugin) {
         this.plugin = plugin;
@@ -50,9 +51,6 @@ public class DiscordWebhook {
         loadConfig();
     }
     
-    /**
-     * Load Discord configuration from config.yml
-     */
     public void loadConfig() {
         ConfigurationSection discord = plugin.getConfig().getConfigurationSection("discord");
         if (discord == null) {
@@ -62,7 +60,7 @@ public class DiscordWebhook {
         }
         
         this.enabled = discord.getBoolean("enabled", false);
-        this.webhookUrl = discord.getString("webhook-url", "");
+        this.webhookUrl = discord.getString("webhook-url", "").trim();
         this.useEmbeds = discord.getBoolean("use-embeds", true);
         parseMentionRole(discord.getString("mention-role", ""));
         this.showCoordinates = discord.getBoolean("show-coordinates", true);
@@ -80,7 +78,6 @@ public class DiscordWebhook {
         this.embedThumbnailUrl = embed != null ? embed.getString("thumbnail-url", "") : "";
         this.embedTimestamp = embed == null || embed.getBoolean("show-timestamp", true);
         
-        // Load alert toggles
         ConfigurationSection alerts = discord.getConfigurationSection("alerts");
         if (alerts != null) {
             alertToggles.put("capture-started", alerts.getBoolean("capture-started", true));
@@ -99,6 +96,13 @@ public class DiscordWebhook {
         }
         
         if (enabled && !webhookUrl.isEmpty()) {
+            // validate basic webhook URL format to catch misconfiguration early
+            Pattern webhookPattern = Pattern.compile("^https?://(canary\\.|ptb\\.)?discord(app)?\\.com/api/webhooks/\\d+(/[A-Za-z0-9-_/.]+)?$");
+            if (!webhookPattern.matcher(webhookUrl).matches()) {
+                logger.warning("Discord webhook URL looks invalid; disabling webhook. Please verify the URL in config.yml");
+                this.enabled = false;
+                return;
+            }
             logger.info("Discord webhook enabled! Alerts will be sent to Discord.");
         } else if (enabled) {
             logger.warning("Discord webhook enabled but URL not configured!");
@@ -142,27 +146,18 @@ public class DiscordWebhook {
         return resolved;
     }
     
-    /**
-     * Check if an alert type is enabled
-     */
     private boolean isAlertEnabled(String alertType) {
         return enabled && alertToggles.getOrDefault(alertType, false);
     }
-    
-    /**
-     * Check rate limit for a zone
-     */
+
     private boolean isRateLimited(String zoneId) {
         long now = System.currentTimeMillis();
         Long lastTime = lastMessageTime.get(zoneId);
-        
-        // Check rate limit
+
         if (lastTime != null && (now - lastTime) < rateLimitMs) {
             return true;
         }
-        
-        // Atomically update if not rate limited
-        // Use putIfAbsent for the initial case, compute for updates
+
         lastMessageTime.compute(zoneId, (key, oldValue) -> {
             if (oldValue == null || (now - oldValue) >= rateLimitMs) {
                 return now;
@@ -173,9 +168,6 @@ public class DiscordWebhook {
         return false;
     }
     
-    /**
-     * Send capture started alert
-     */
     public void sendCaptureStarted(String zoneId, String zoneName, String townName, String location) {
         if (!isAlertEnabled("capture-started") || isRateLimited(zoneId)) return;
         
@@ -198,9 +190,6 @@ public class DiscordWebhook {
         }
     }
     
-    /**
-     * Send capture completed alert
-     */
     public void sendCaptureCompleted(String zoneId, String zoneName, String townName, String captureTime) {
         if (!isAlertEnabled("capture-completed") || isRateLimited(zoneId)) return;
         
@@ -223,9 +212,6 @@ public class DiscordWebhook {
         }
     }
     
-    /**
-     * Send capture failed alert
-     */
     public void sendCaptureFailed(String zoneId, String zoneName, String townName, String reason) {
         if (!isAlertEnabled("capture-failed") || isRateLimited(zoneId)) return;
         
@@ -249,9 +235,6 @@ public class DiscordWebhook {
         }
     }
     
-    /**
-     * Send capture cancelled alert
-     */
     public void sendCaptureCancelled(String zoneId, String zoneName, String townName, String reason) {
         if (!isAlertEnabled("capture-cancelled") || isRateLimited(zoneId)) return;
         
@@ -275,9 +258,6 @@ public class DiscordWebhook {
         }
     }
     
-    /**
-     * Send rewards distributed alert
-     */
     public void sendRewardsDistributed(String zoneId, String zoneName, String townName, double amount, String rewardType) {
         if (!isAlertEnabled("rewards-distributed")) return;
         
@@ -308,9 +288,6 @@ public class DiscordWebhook {
         }
     }
     
-    /**
-     * Send reinforcement phase alert
-     */
     public void sendReinforcementPhase(String zoneId, String zoneName, int phase, int mobCount) {
         if (!isAlertEnabled("reinforcement-phases") || isRateLimited(zoneId)) return;
         
@@ -335,9 +312,6 @@ public class DiscordWebhook {
         }
     }
     
-    /**
-     * Send zone created alert
-     */
     public void sendZoneCreated(String zoneId, String zoneName, String creator, String type, int radius, double reward) {
         if (!isAlertEnabled("zone-created")) return;
         
@@ -363,9 +337,6 @@ public class DiscordWebhook {
         }
     }
     
-    /**
-     * Send zone deleted alert
-     */
     public void sendZoneDeleted(String zoneId, String zoneName, String deletedBy) {
         if (!isAlertEnabled("zone-deleted")) return;
         
@@ -384,9 +355,6 @@ public class DiscordWebhook {
         }
     }
     
-    /**
-     * Send weekly reset alert
-     */
     public void sendWeeklyReset(int zonesReset) {
         if (!isAlertEnabled("weekly-reset")) return;
         
@@ -405,9 +373,6 @@ public class DiscordWebhook {
         }
     }
     
-    /**
-     * Send first capture bonus alert
-     */
     public void sendFirstCaptureBonus(String zoneId, String zoneName, String townName, double bonusAmount) {
         if (!isAlertEnabled("first-capture-bonus")) return;
         
@@ -435,9 +400,6 @@ public class DiscordWebhook {
         }
     }
     
-    /**
-     * Send player death alert
-     */
     public void sendPlayerDeath(String zoneId, String zoneName, String victim, String killer, String townName) {
         if (!isAlertEnabled("player-death") || isRateLimited(zoneId)) return;
         
@@ -462,9 +424,6 @@ public class DiscordWebhook {
         }
     }
     
-    /**
-     * Send new record alert
-     */
     public void sendNewRecord(String recordType, String holder, String value) {
         if (!isAlertEnabled("new-records")) return;
         
@@ -485,9 +444,6 @@ public class DiscordWebhook {
         }
     }
     
-    /**
-     * Send milestone alert
-     */
     public void sendMilestone(String entityName, String entityType, String milestone) {
         if (!isAlertEnabled("milestones")) return;
         
@@ -506,9 +462,6 @@ public class DiscordWebhook {
         }
     }
     
-    /**
-     * Create an embed field
-     */
     @SuppressWarnings("unchecked")
     private JSONObject createField(String name, String value, boolean inline) {
         if (name == null || value == null) return null;
@@ -520,16 +473,12 @@ public class DiscordWebhook {
         return field;
     }
     
-    /**
-     * Send a rich Discord embed
-     */
     @SuppressWarnings("unchecked")
     private void sendEmbed(String title, String description, Color color, JSONObject... fields) {
         CompletableFuture.runAsync(() -> {
             try {
                 JSONObject embed = buildEmbed(title, description, color, fields);
-                
-                // Build payload
+
                 JSONObject payload = new JSONObject();
                 applyRoleMention(payload, null);
                 JSONArray embeds = new JSONArray();
@@ -544,9 +493,6 @@ public class DiscordWebhook {
         });
     }
     
-    /**
-     * Send plain text message
-     */
     @SuppressWarnings("unchecked")
     private void sendPlainText(String message) {
         CompletableFuture.runAsync(() -> {
@@ -628,46 +574,95 @@ public class DiscordWebhook {
         }
     }
     
-    /**
-     * Send webhook HTTP request
-     */
-    private void sendWebhook(JSONObject payload) {
-        try {
-            URL url = new URL(webhookUrl);
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("POST");
-            connection.setRequestProperty("Content-Type", "application/json");
-            connection.setRequestProperty("User-Agent", "CaptureZones-Webhook/1.0");
-            connection.setDoOutput(true);
-            
-            try (OutputStream os = connection.getOutputStream()) {
-                byte[] input = payload.toJSONString().getBytes(StandardCharsets.UTF_8);
-                os.write(input, 0, input.length);
-            }
-            
-            int responseCode = connection.getResponseCode();
-            if (responseCode == 204 || responseCode == 200) {
-                // Success - Discord returns 204 No Content on success
-                if (plugin.getConfig().getBoolean("settings.debug-mode", false)) {
-                    logger.info("Discord webhook sent successfully.");
+    private boolean sendWebhook(JSONObject payload) {
+        final int maxRetries = 3;
+        long backoffMs = 1000L;
+        int attempt = 0;
+
+        HttpRequest.Builder baseRequestBuilder = HttpRequest.newBuilder()
+                .uri(URI.create(webhookUrl))
+                .timeout(Duration.ofSeconds(10))
+                .header("Content-Type", "application/json; charset=UTF-8")
+                .header("User-Agent", "CaptureZones-Webhook/1.0");
+
+        while (attempt <= maxRetries) {
+            attempt++;
+            try {
+                HttpRequest request = baseRequestBuilder
+                        .POST(HttpRequest.BodyPublishers.ofString(payload.toJSONString(), StandardCharsets.UTF_8))
+                        .build();
+
+                HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+                int status = response.statusCode();
+
+                if (status == 204 || status == 200) {
+                    if (plugin.getConfig().getBoolean("settings.debug-mode", false)) {
+                        logger.info("Discord webhook sent successfully.");
+                    }
+                    return true;
                 }
-            } else {
-                logger.warning("Discord webhook returned code " + responseCode);
-            }
-            
-            connection.disconnect();
-            
-        } catch (Exception e) {
-            logger.warning("Failed to send Discord webhook: " + e.getMessage());
-            if (plugin.getConfig().getBoolean("settings.debug-mode", false)) {
-                e.printStackTrace();
+
+                if (status == 429) {
+                    String retryAfter = response.headers().firstValue("Retry-After").orElse("");
+                    long waitMs = backoffMs;
+                    if (!retryAfter.isEmpty()) {
+                        try {
+                            long seconds = Long.parseLong(retryAfter.trim());
+                            waitMs = seconds * 1000L;
+                        } catch (NumberFormatException ignored) {
+                            // ignore
+                        }
+                    }
+
+                    if (attempt > maxRetries) {
+                        logger.warning("Discord webhook returned 429 too many times; giving up.");
+                        if (plugin.getConfig().getBoolean("settings.debug-mode", false)) {
+                            logger.warning("Discord 429 response body: " + response.body());
+                        }
+                        return false;
+                    }
+
+                    if (plugin.getConfig().getBoolean("settings.debug-mode", false)) {
+                        logger.info("Discord webhook rate-limited (429). Waiting " + waitMs + "ms before retry (attempt " + attempt + ").");
+                    }
+                    try {
+                        Thread.sleep(waitMs);
+                    } catch (InterruptedException ignored) {
+                        Thread.currentThread().interrupt();
+                        return false;
+                    }
+                    backoffMs = Math.min(backoffMs * 2, 30_000L);
+                    continue;
+                }
+
+                if (plugin.getConfig().getBoolean("settings.debug-mode", false)) {
+                    logger.warning("Discord webhook returned code " + status + ", body: " + response.body());
+                } else {
+                    logger.warning("Discord webhook returned code " + status);
+                }
+                return false;
+
+            } catch (Exception e) {
+                logger.warning("Failed to send Discord webhook: " + e.getMessage());
+                if (plugin.getConfig().getBoolean("settings.debug-mode", false)) {
+                    e.printStackTrace();
+                }
+
+                if (attempt > maxRetries) return false;
+                try {
+                    Thread.sleep(backoffMs);
+                } catch (InterruptedException ignored) {
+                    Thread.currentThread().interrupt();
+                    return false;
+                }
+                backoffMs = Math.min(backoffMs * 2, 30_000L);
             }
         }
+        return false;
     }
+
     
-    /**
-     * Test the webhook connection
-     */
+    
     public boolean testWebhook() {
         if (!enabled || webhookUrl.isEmpty()) {
             return false;
@@ -675,16 +670,25 @@ public class DiscordWebhook {
         
         try {
             if (useEmbeds) {
-                sendEmbed(Messages.get("discord.test.title"), 
-                    Messages.get("discord.test.description"),
-                    Color.GREEN,
-                    createField(Messages.get("discord.field.status"), Messages.get("discord.value.connected"), true),
-                    createField(Messages.get("discord.field.plugin-version"), plugin.getDescription().getVersion(), true)
+                JSONObject embed = buildEmbed(Messages.get("discord.test.title"),
+                        Messages.get("discord.test.description"),
+                        Color.GREEN,
+                        createField(Messages.get("discord.field.status"), Messages.get("discord.value.connected"), true),
+                        createField(Messages.get("discord.field.plugin-version"), plugin.getDescription().getVersion(), true)
                 );
+
+                JSONObject payload = new JSONObject();
+                JSONArray embeds = new JSONArray();
+                embeds.add(embed);
+                payload.put("embeds", embeds);
+                applyRoleMention(payload, null);
+
+                return sendWebhook(payload);
             } else {
-                sendPlainText(Messages.get("discord.test.plain"));
+                JSONObject payload = new JSONObject();
+                applyRoleMention(payload, Messages.get("discord.test.plain"));
+                return sendWebhook(payload);
             }
-            return true;
         } catch (Exception e) {
             logger.severe("Webhook test failed: " + e.getMessage());
             return false;

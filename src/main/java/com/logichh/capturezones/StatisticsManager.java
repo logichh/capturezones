@@ -9,10 +9,6 @@ import java.util.*;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-/**
- * Manages all capture zone statistics tracking, storage, and retrieval.
- * Handles JSON persistence and provides query methods for leaderboards.
- */
 public class StatisticsManager {
     
     private final CaptureZones plugin;
@@ -21,8 +17,8 @@ public class StatisticsManager {
     private final File statsFile;
     private StatisticsData data;
     
-    // Track active capture start times for duration calculation
     private final Map<String, Long> activeCaptureStarts = new HashMap<>();
+
     private final Map<String, Long> zoneControlStarts = new HashMap<>();
     private static final int[] CAPTURE_MILESTONE_THRESHOLDS = {10, 25, 50, 100, 250, 500, 1000};
     
@@ -36,9 +32,6 @@ public class StatisticsManager {
         loadStatistics();
     }
     
-    /**
-     * Load statistics from JSON file
-     */
     public void loadStatistics() {
         if (!statsFile.exists()) {
             logger.info("No statistics file found, starting fresh.");
@@ -60,9 +53,6 @@ public class StatisticsManager {
         }
     }
     
-    /**
-     * Save statistics to JSON file
-     */
     public void saveStatistics() {
         try {
             if (!statsFile.exists()) {
@@ -85,28 +75,19 @@ public class StatisticsManager {
         }
     }
     
-    // ==================== CAPTURE TRACKING ====================
-    
-    /**
-     * Called when a capture session starts
-     */
     public void onCaptureStart(String zoneId, String townName, UUID playerId) {
         activeCaptureStarts.put(zoneId, System.currentTimeMillis());
         
         StatisticsData.PlayerStats playerStats = data.getPlayerStats(playerId);
         playerStats.capturesParticipated++;
         
-        // Update server records for first capture
         if (data.getServerRecords().firstCaptureTime == 0) {
             data.getServerRecords().firstCaptureTime = System.currentTimeMillis();
             data.getServerRecords().firstCapturingTown = townName;
             data.getServerRecords().firstCapturingPlayer = plugin.getServer().getOfflinePlayer(playerId).getName();
         }
     }
-    
-    /**
-     * Called when a capture completes successfully
-     */
+
     public void onCaptureComplete(String zoneId, String zoneName, String townName, UUID playerId, Set<UUID> participants) {
         long captureTime = System.currentTimeMillis() - activeCaptureStarts.getOrDefault(zoneId, System.currentTimeMillis());
         activeCaptureStarts.remove(zoneId);
@@ -115,7 +96,6 @@ public class StatisticsManager {
         String safeTownName = townName != null && !townName.isEmpty() ? townName : "Unknown";
         String safePlayerName = resolvePlayerName(playerId);
         
-        // Update player stats
         StatisticsData.PlayerStats mainPlayerStats = data.getPlayerStats(playerId);
         mainPlayerStats.totalCaptures++;
         mainPlayerStats.currentWinStreak++;
@@ -123,7 +103,6 @@ public class StatisticsManager {
             mainPlayerStats.longestWinStreak = mainPlayerStats.currentWinStreak;
         }
         
-        // Track fastest/longest capture
         if (captureTime < mainPlayerStats.fastestCapture) {
             mainPlayerStats.fastestCapture = captureTime;
         }
@@ -131,13 +110,11 @@ public class StatisticsManager {
             mainPlayerStats.longestCapture = captureTime;
         }
         
-        // Update all participants
         for (UUID participantId : participants) {
             StatisticsData.PlayerStats participantStats = data.getPlayerStats(participantId);
             participantStats.totalTimeInCaptures += captureTime / participants.size();
         }
         
-        // Update town stats
         StatisticsData.TownStats townStats = data.getTownStats(safeTownName);
         townStats.totalCaptures++;
         townStats.currentControlledZones++;
@@ -146,12 +123,10 @@ public class StatisticsManager {
         }
         townStats.capturesPerZone.merge(zoneId, 1, Integer::sum);
         
-        // Update zone stats
         StatisticsData.ZoneStats zoneStats = data.getZoneStats(zoneId);
         zoneStats.totalCaptures++;
         zoneStats.controlChanges++;
         
-        // Track previous controller for control time
         if (!zoneStats.currentController.isEmpty() && !zoneStats.currentController.equals(safeTownName)) {
             long controlDuration = System.currentTimeMillis() - zoneStats.currentControlStart;
             StatisticsData.TownStats previousTown = data.getTownStats(zoneStats.currentController);
@@ -170,7 +145,6 @@ public class StatisticsManager {
         zoneStats.currentControlStart = System.currentTimeMillis();
         zoneControlStarts.put(zoneId, System.currentTimeMillis());
         
-        // Track fastest/longest at zone level
         if (captureTime < zoneStats.fastestCapture) {
             zoneStats.fastestCapture = captureTime;
         }
@@ -178,7 +152,6 @@ public class StatisticsManager {
             zoneStats.longestCapture = captureTime;
         }
         
-        // Update server records
         StatisticsData.ServerRecords records = data.getServerRecords();
         records.totalServerCaptures++;
         maybeSendCaptureMilestone(webhook, "Server", "Server", records.totalServerCaptures);
@@ -204,7 +177,6 @@ public class StatisticsManager {
             );
         }
         
-        // Update most captured zone
         if (zoneStats.totalCaptures > records.mostCapturesCount) {
             records.mostCapturesCount = zoneStats.totalCaptures;
             records.mostCapturedZone = safeZoneName;
@@ -216,7 +188,6 @@ public class StatisticsManager {
             );
         }
         
-        // Update dominant town
         if (townStats.totalCaptures > records.dominantTownCaptures) {
             records.dominantTownCaptures = townStats.totalCaptures;
             records.dominantTown = safeTownName;
@@ -233,9 +204,6 @@ public class StatisticsManager {
         maybeSendCaptureMilestone(webhook, safePlayerName, "Player", mainPlayerStats.totalCaptures);
     }
     
-    /**
-     * Called when a capture fails
-     */
     public void onCaptureFailed(String zoneId, String townName, UUID playerId) {
         activeCaptureStarts.remove(zoneId);
         
@@ -250,11 +218,6 @@ public class StatisticsManager {
         zoneStats.failedAttempts++;
     }
     
-    // ==================== COMBAT TRACKING ====================
-    
-    /**
-     * Called when a player kills another player in a zone
-     */
     public void onPlayerKillInZone(UUID killerId, UUID victimId, String zoneId) {
         DiscordWebhook webhook = plugin.getDiscordWebhook();
         StatisticsData.PlayerStats killerStats = data.getPlayerStats(killerId);
@@ -263,7 +226,6 @@ public class StatisticsManager {
         StatisticsData.PlayerStats victimStats = data.getPlayerStats(victimId);
         victimStats.deathsInZones++;
         
-        // Get town stats
         Player killer = plugin.getServer().getPlayer(killerId);
         Player victim = plugin.getServer().getPlayer(victimId);
 
@@ -277,11 +239,9 @@ public class StatisticsManager {
             data.getTownStats(victimTown).totalDeaths++;
         }
         
-        // Zone stats
         StatisticsData.ZoneStats zoneStats = data.getZoneStats(zoneId);
         zoneStats.totalDeaths++;
-        
-        // Server records
+
         data.getServerRecords().totalServerDeaths++;
         
         if (zoneStats.totalDeaths > data.getServerRecords().mostDeaths) {
@@ -296,9 +256,6 @@ public class StatisticsManager {
         }
     }
     
-    /**
-     * Called when a player kills a mob in a zone
-     */
     public void onMobKillInZone(UUID playerId, String zoneId) {
         StatisticsData.PlayerStats playerStats = data.getPlayerStats(playerId);
         playerStats.mobKills++;
@@ -315,11 +272,6 @@ public class StatisticsManager {
         data.getServerRecords().totalServerMobKills++;
     }
     
-    // ==================== ECONOMY TRACKING ====================
-    
-    /**
-     * Called when rewards are distributed
-     */
     public void onRewardDistributed(String zoneId, String zoneName, String townName, double amount) {
         DiscordWebhook webhook = plugin.getDiscordWebhook();
         StatisticsData.TownStats townStats = data.getTownStats(townName);
@@ -344,11 +296,6 @@ public class StatisticsManager {
         }
     }
     
-    // ==================== QUERY METHODS ====================
-    
-    /**
-     * Get top N towns by total captures
-     */
     public List<Map.Entry<String, Integer>> getTopTownsByCaptures(int limit) {
         return data.getAllTownStats().entrySet().stream()
             .sorted((e1, e2) -> Integer.compare(e2.getValue().totalCaptures, e1.getValue().totalCaptures))
@@ -357,9 +304,6 @@ public class StatisticsManager {
             .collect(Collectors.toList());
     }
     
-    /**
-     * Get top N players by kills in zones
-     */
     public List<Map.Entry<UUID, Integer>> getTopPlayersByKills(int limit) {
         return data.getAllPlayerStats().entrySet().stream()
             .sorted((e1, e2) -> Integer.compare(e2.getValue().killsInZones, e1.getValue().killsInZones))
@@ -368,9 +312,6 @@ public class StatisticsManager {
             .collect(Collectors.toList());
     }
     
-    /**
-     * Get top N towns by total hold time
-     */
     public List<Map.Entry<String, Long>> getTopTownsByHoldTime(int limit) {
         return data.getAllTownStats().entrySet().stream()
             .sorted((e1, e2) -> Long.compare(e2.getValue().totalHoldTime, e1.getValue().totalHoldTime))
@@ -379,9 +320,6 @@ public class StatisticsManager {
             .collect(Collectors.toList());
     }
     
-    /**
-     * Get top N towns by total rewards
-     */
     public List<Map.Entry<String, Double>> getTopTownsByRewards(int limit) {
         return data.getAllTownStats().entrySet().stream()
             .sorted((e1, e2) -> Double.compare(e2.getValue().totalRewardsEarned, e1.getValue().totalRewardsEarned))
@@ -390,9 +328,6 @@ public class StatisticsManager {
             .collect(Collectors.toList());
     }
     
-    /**
-     * Get top N towns by mob kills
-     */
     public List<Map.Entry<String, Integer>> getTopTownsByMobKills(int limit) {
         return data.getAllTownStats().entrySet().stream()
             .sorted((e1, e2) -> Integer.compare(e2.getValue().mobsKilled, e1.getValue().mobsKilled))
@@ -401,9 +336,6 @@ public class StatisticsManager {
             .collect(Collectors.toList());
     }
     
-    /**
-     * Get top N players by K/D ratio
-     */
     public List<Map.Entry<UUID, Double>> getTopPlayersByKDRatio(int limit) {
         return data.getAllPlayerStats().entrySet().stream()
             .filter(e -> e.getValue().deathsInZones > 0 || e.getValue().killsInZones > 0)
@@ -413,24 +345,15 @@ public class StatisticsManager {
             .collect(Collectors.toList());
     }
     
-    /**
-     * Get statistics data
-     */
     public StatisticsData getData() {
         return data;
     }
-    
-    /**
-     * Remove player statistics
-     */
+
     public void removePlayerStats(UUID playerId) {
         data.removePlayerStats(playerId);
         saveStatistics();
     }
-    
-    /**
-     * Reset all statistics
-     */
+
     public void resetAllStats() {
         data.resetAllStats();
         activeCaptureStarts.clear();

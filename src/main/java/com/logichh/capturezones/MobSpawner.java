@@ -6,11 +6,6 @@ import org.bukkit.entity.Player;
 
 import java.util.List;
 
-/**
- * Interface for mob spawning abstraction.
- * Allows different implementations (vanilla, MythicMobs, etc.)
- * to provide reinforcement mobs for capture sessions.
- */
 public interface MobSpawner {
     
     /**

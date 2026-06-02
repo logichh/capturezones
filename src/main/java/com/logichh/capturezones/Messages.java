@@ -21,54 +21,34 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.logging.Level;
 
-/**
- * Handles localization for the CaptureZones plugin.
- * Supports JSON-based language files with automatic fallback to English.
- * Features placeholder replacement and ChatColor translation.
- *
- * @author LogicHH
- * @version 1.0
- */
 public class Messages {
 
     private static final String LANG_DIR = "lang";
     private static final String DEFAULT_LANG = "en";
+
     private static final Gson GSON = new Gson();
 
     private static JavaPlugin plugin;
     private static String activeLanguage;
+
     private static Map<String, Map<String, Object>> languageCache = new HashMap<>();
     private static Map<String, Object> fallbackCache;
 
-    /**
-     * Initializes the Messages system.
-     * Must be called in onEnable() after config is loaded.
-     *
-     * @param plugin The main plugin instance
-     */
     public static void init(JavaPlugin plugin) {
         Messages.plugin = plugin;
         loadLanguages();
     }
 
-    /**
-     * Reloads all language files.
-     * Should be called when language files are updated.
-     */
     public static void reload() {
         languageCache.clear();
         fallbackCache = null;
         loadLanguages();
     }
 
-    /**
-     * Loads all available language files from the lang/ directory.
-     */
     private static void loadLanguages() {
         File langDir = new File(plugin.getDataFolder(), LANG_DIR);
         if (!langDir.exists()) {
             langDir.mkdirs();
-            // Copy default language files from jar
             copyDefaultLanguageFiles();
         }
 
@@ -95,31 +75,20 @@ public class Messages {
             }
         }
 
-        // Ensure default language is loaded
         if (!languageCache.containsKey(DEFAULT_LANG)) {
             loadDefaultEnglish();
         }
 
-        // Set fallback cache
         fallbackCache = languageCache.get(DEFAULT_LANG);
 
-        // Set active language from config
         String configLang = plugin.getConfig().getString("settings.language", DEFAULT_LANG);
         setActiveLanguage(configLang);
     }
 
-    /**
-     * Copies default language files from the plugin jar to the data folder.
-     */
     private static void copyDefaultLanguageFiles() {
         copyDefaultFile("lang/en.json");
     }
 
-    /**
-     * Copies a default file from the jar resources.
-     *
-     * @param resourcePath The path to the resource in the jar
-     */
     private static void copyDefaultFile(String resourcePath) {
         try (InputStream in = plugin.getResource(resourcePath)) {
             if (in != null) {
@@ -132,9 +101,6 @@ public class Messages {
         }
     }
 
-    /**
-     * Loads the default English translations from the jar.
-     */
     private static void loadDefaultEnglish() {
         Map<String, Object> translations = loadBundledLanguage(DEFAULT_LANG);
         if (translations != null) {
@@ -163,13 +129,6 @@ public class Messages {
         return null;
     }
 
-    /**
-     * Parses a JsonObject into a Map<String, Object>.
-     * Handles nested objects and arrays.
-     *
-     * @param json The JsonObject to parse
-     * @return A map representation of the JSON
-     */
     private static Map<String, Object> parseJsonObject(JsonObject json) {
         Map<String, Object> map = new HashMap<>();
         for (Map.Entry<String, JsonElement> entry : json.entrySet()) {
@@ -178,12 +137,6 @@ public class Messages {
         return map;
     }
 
-    /**
-     * Parses a JsonElement into the appropriate Java object.
-     *
-     * @param element The JsonElement to parse
-     * @return The parsed object (String, List, Map, etc.)
-     */
     private static Object parseJsonElement(JsonElement element) {
         if (element.isJsonPrimitive()) {
             return element.getAsString();
@@ -199,12 +152,6 @@ public class Messages {
         return element.toString();
     }
 
-    /**
-     * Sets the active language.
-     * If the language doesn't exist, tries the short code, then falls back to English.
-     *
-     * @param language The language code to set
-     */
     public static void setActiveLanguage(String language) {
         if (languageCache.containsKey(language)) {
             activeLanguage = language;
@@ -217,41 +164,18 @@ public class Messages {
         }
     }
 
-    /**
-     * Gets the active language code.
-     *
-     * @return The current active language
-     */
     public static String getActiveLanguage() {
         return activeLanguage;
     }
 
-    /**
-     * Gets a list of available language codes.
-     *
-     * @return A sorted set of available languages
-     */
     public static Set<String> getAvailableLanguages() {
         return new TreeSet<>(languageCache.keySet());
     }
 
-    /**
-     * Gets a translated message by key.
-     *
-     * @param key The translation key
-     * @return The translated message with ChatColor applied, or the key if not found
-     */
     public static String get(String key) {
         return get(key, (Map<String, String>) null);
     }
 
-    /**
-     * Gets a translated message by key with placeholder replacement.
-     *
-     * @param key The translation key
-     * @param placeholders Map of placeholder keys to values
-     * @return The translated message with placeholders replaced and ChatColor applied
-     */
     public static String get(String key, Map<String, String> placeholders) {
         String message = getRaw(key);
         if (placeholders != null) {
@@ -262,14 +186,6 @@ public class Messages {
         return ChatColor.translateAlternateColorCodes('&', message);
     }
 
-    /**
-     * Gets a translated message by key with variable arguments for placeholders.
-     * Placeholders are replaced in order: {0}, {1}, etc.
-     *
-     * @param key The translation key
-     * @param args The values to replace {0}, {1}, etc.
-     * @return The translated message with placeholders replaced and ChatColor applied
-     */
     public static String get(String key, Object... args) {
         String message = getRaw(key);
         for (int i = 0; i < args.length; i++) {
@@ -278,23 +194,10 @@ public class Messages {
         return ChatColor.translateAlternateColorCodes('&', message);
     }
 
-    /**
-     * Gets a translated list of messages by key.
-     *
-     * @param key The translation key
-     * @return A list of translated messages, or empty list if not found or not a list
-     */
     public static List<String> getList(String key) {
         return getList(key, null);
     }
 
-    /**
-     * Gets a translated list of messages by key with placeholder replacement.
-     *
-     * @param key The translation key
-     * @param placeholders Map of placeholder keys to values
-     * @return A list of translated messages with placeholders replaced and ChatColor applied
-     */
     public static List<String> getList(String key, Map<String, String> placeholders) {
         Object value = getRawObject(key);
         if (!(value instanceof List)) {
@@ -314,35 +217,21 @@ public class Messages {
         return result;
     }
 
-    /**
-     * Gets the raw (uncolored) translation value.
-     *
-     * @param key The translation key
-     * @return The raw translation string
-     */
     private static String getRaw(String key) {
         Object value = getRawObject(key);
         return value != null ? String.valueOf(value) : key;
     }
 
-    /**
-     * Gets the raw translation object with fallback logic.
-     *
-     * @param key The translation key
-     * @return The translation object, or null if not found
-     */
     private static Object getRawObject(String key) {
         Map<String, Object> activeMap = languageCache.get(activeLanguage);
         if (activeMap != null && activeMap.containsKey(key)) {
             return activeMap.get(key);
         }
 
-        // Try fallback to English
         if (fallbackCache != null && fallbackCache.containsKey(key)) {
             return fallbackCache.get(key);
         }
 
-        // Last resort: return the key itself
         return key;
     }
 }

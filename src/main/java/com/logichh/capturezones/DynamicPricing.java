@@ -1,8 +1,5 @@
 package com.logichh.capturezones;
 
-/**
- * Dynamic pricing calculator for shop items
- */
 public class DynamicPricing {
     
     private final ShopData shopData;
@@ -11,9 +8,6 @@ public class DynamicPricing {
         this.shopData = shopData;
     }
     
-    /**
-     * Update prices for an item based on transactions and stock
-     */
     public void updateItemPrice(ShopItemConfig item) {
         if (shopData.getPricingMode() != ShopData.PricingMode.DYNAMIC) {
             return;
@@ -24,14 +18,10 @@ public class DynamicPricing {
         item.setLastPriceUpdate(System.currentTimeMillis());
     }
     
-    /**
-     * Calculate price multiplier based on various factors
-     */
     private double calculatePriceMultiplier(ShopItemConfig item) {
         double sensitivity = shopData.getDynamicSensitivity();
         double currentMultiplier = item.getPriceMultiplier();
         
-        // Start from current multiplier for time decay
         double multiplier = currentMultiplier;
         
         // Factor 1: Time-based decay (prices slowly return to normal)
@@ -68,9 +58,6 @@ public class DynamicPricing {
         return multiplier;
     }
     
-    /**
-     * Adjust price after a buy transaction
-     */
     public void onBuyTransaction(ShopItemConfig item, int quantity) {
         if (shopData.getPricingMode() != ShopData.PricingMode.DYNAMIC) {
             return;
@@ -86,9 +73,6 @@ public class DynamicPricing {
         item.setLastPriceUpdate(System.currentTimeMillis());
     }
     
-    /**
-     * Adjust price after a sell transaction
-     */
     public void onSellTransaction(ShopItemConfig item, int quantity) {
         if (shopData.getPricingMode() != ShopData.PricingMode.DYNAMIC) {
             return;
@@ -104,9 +88,6 @@ public class DynamicPricing {
         item.setLastPriceUpdate(System.currentTimeMillis());
     }
     
-    /**
-     * Periodic price updates (called by shop manager)
-     */
     public void updateAllPrices() {
         if (shopData.getPricingMode() != ShopData.PricingMode.DYNAMIC) {
             return;
@@ -117,9 +98,6 @@ public class DynamicPricing {
         }
     }
     
-    /**
-     * Reset all prices to base (1.0 multiplier)
-     */
     public void resetAllPrices() {
         for (ShopItemConfig item : shopData.getItems().values()) {
             item.setPriceMultiplier(1.0);

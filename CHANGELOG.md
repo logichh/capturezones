@@ -1,5 +1,75 @@
 # CaptureZones - Change Log
 
+## Version 1.1.4 - [2026-06-02]
+
+### Added
+- Added configurable town-wide money payout modes for zone rewards:
+  - `OWNER_ACCOUNT` keeps the previous behavior and pays the controlling owner account.
+  - `SPLIT_ONLINE` splits one configured reward across online eligible owner members.
+  - `EACH_ONLINE` pays the full configured reward to each online eligible owner member.
+  - `EACH_RESIDENT` pays the full configured reward to each Towny resident account, including offline residents when Towny can resolve the account.
+- Added payout safety controls:
+  - `rewards.money.max-recipients`
+  - `rewards.money.batch-size`
+- Added capturer-bound potion rewards:
+  - Configured per zone under `rewards.potion-effects`.
+  - Effects are granted to the player who initiated the successful capture.
+  - Effects transfer away from the previous capturer when another owner captures the zone.
+  - Effects are refreshed with short durations instead of unsafe permanent effects.
+- Added Towny-owner conquest mode:
+  - Ticket-based multi-zone matches.
+  - Profile config under `conquest.profiles`.
+  - Team tickets, ticket drain, capture ticket gain/loss, profile zones, and minimum team count.
+  - Active conquest restricts managed zones to configured participating Towny owners.
+- Added conquest admin commands:
+  - `/cap admin conquest start [profile]`
+  - `/cap admin conquest stop`
+  - `/cap admin conquest status`
+  - `/cap admin conquest assign [profile] <zone_id>`
+  - `/cap admin conquest unassign [profile] <zone_id>`
+  - `/cap admin conquest zones [profile]`
+- Added `capturezones.admin.conquest` permission.
+- Added Pl3xMap integration:
+  - New `Pl3xMapProvider`.
+  - Global config under `pl3xmap`.
+  - Per-zone map styling under `pl3xmap` in `zone-template.yml`.
+  - Zone area markers, center markers, colors, popups, and conquest ticket status.
+- Added Pl3xMap as a soft dependency and Maven `provided` dependency.
+- Added conquest ticket display to map info windows.
+
+### Changed
+- Updated plugin release metadata to `1.1.4`.
+- Updated the Spigot compile API target to `1.21.11-R0.1-SNAPSHOT`.
+- Updated Bukkit plugin metadata to `api-version: '1.21'` for modern 1.21.x server API behavior.
+- Daily and hourly economy reward reporting now uses the actual paid total for statistics, Discord alerts, and broadcast messages when member payout modes are enabled.
+- Towny owner adapter now exposes helper methods for online owner players, resident account names, and resident account deposits.
+- Zone config validation now supports the new money payout and potion reward paths.
+- Admin help and tab completion now include conquest commands.
+- Default configs now include disabled-by-default sections for conquest and Pl3xMap, preserving existing behavior on upgrade.
+
+### Configuration
+- Added global config:
+  - `conquest.enabled`
+  - `conquest.default-profile`
+  - `conquest.tick-interval-seconds`
+  - `conquest.profiles.default.*`
+  - `potion-rewards.refresh-interval-ticks`
+  - `pl3xmap.*`
+- Added per-zone config:
+  - `rewards.money.payout-mode`
+  - `rewards.money.max-recipients`
+  - `rewards.money.batch-size`
+  - `rewards.potion-effects.*`
+  - `pl3xmap.*`
+- Added language entries for conquest, potion reward grant/removal, new admin help, and map ticket labels.
+
+### Performance & Stability
+- Keeps new reward, potion, conquest, and Pl3xMap systems opt-in by default.
+- Clamps risky admin-configurable values such as ticket amounts, payout recipient limits, payout batch size, and potion durations/amplifiers.
+- Cleans up potion reward tracking on zone reset, delete, force capture, reload, and shutdown.
+- Replaced removed Bukkit 1.21.11 API constants with current particle and potion effect names.
+- Excluded JUnit from the shaded production jar through the `json-simple` dependency.
+
 ## Version 1.1.3 - [2026-02-28]
 
 ### Added

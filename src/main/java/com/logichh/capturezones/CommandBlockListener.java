@@ -18,6 +18,7 @@ public class CommandBlockListener
 implements Listener {
     private static final long BLOCKED_COMMAND_CACHE_TTL_MS = 1000L;
     private final CaptureZones plugin;
+
     private volatile List<String> cachedBlockedCommands = Collections.emptyList();
     private volatile long blockedCommandCacheExpiresAt;
 
@@ -26,6 +27,7 @@ implements Listener {
     }
 
     @EventHandler
+
     public void onPlayerCommandPreprocess(PlayerCommandPreprocessEvent event) {
         Player player = event.getPlayer();
         if (player == null || player.isOp()) {

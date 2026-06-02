@@ -14,6 +14,7 @@ implements Listener {
     }
 
     @EventHandler
+
     public void onNewDay(NewDayEvent event) {
         this.plugin.handleNewDay();
     }

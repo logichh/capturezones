@@ -11,6 +11,7 @@ import java.util.Locale;
 import java.util.Map;
 
 public final class CaptureZonesPlaceholderExpansion extends PlaceholderExpansion {
+
     private static final List<String> ZONE_FIELD_SUFFIXES = Arrays.asList(
         "capturing_owner_type",
         "capturing_owner",
@@ -49,11 +50,13 @@ public final class CaptureZonesPlaceholderExpansion extends PlaceholderExpansion
     }
 
     @Override
+
     public String getIdentifier() {
         return "capturezones";
     }
 
     @Override
+
     public String getAuthor() {
         List<String> authors = plugin.getDescription().getAuthors();
         if (authors == null || authors.isEmpty()) {
@@ -63,16 +66,19 @@ public final class CaptureZonesPlaceholderExpansion extends PlaceholderExpansion
     }
 
     @Override
+
     public String getVersion() {
         return plugin.getDescription().getVersion();
     }
 
     @Override
+
     public boolean persist() {
         return true;
     }
 
     @Override
+
     public String onRequest(OfflinePlayer player, String params) {
         if (params == null) {
             return "";

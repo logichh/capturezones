@@ -2,10 +2,8 @@ package com.logichh.capturezones;
 
 import org.bukkit.command.CommandSender;
 
-/**
- * Canonical permission helper for CaptureZones with backward-compatible fallbacks.
- */
 public final class PermissionNode {
+
     private PermissionNode() {
     }
 
@@ -27,4 +25,3 @@ public final class PermissionNode {
             || sender.hasPermission("townycapture." + normalized);
     }
 }
-

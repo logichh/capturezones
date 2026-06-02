@@ -16,6 +16,7 @@ public class CaptureCommandTabCompleter implements TabCompleter {
     }
 
     @Override
+
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         ArrayList<String> completions = new ArrayList<>();
         if (!(sender instanceof Player)) {
@@ -130,6 +131,9 @@ public class CaptureCommandTabCompleter implements TabCompleter {
             }
             if (PermissionNode.has(player, "admin.koth")) {
                 adminSubcommands.add("koth");
+            }
+            if (PermissionNode.has(player, "admin.conquest")) {
+                adminSubcommands.add("conquest");
             }
             return filterCompletions(adminSubcommands, args[1]);
         }
@@ -276,6 +280,23 @@ public class CaptureCommandTabCompleter implements TabCompleter {
                 if (args.length == 4 && ("unassign".equalsIgnoreCase(args[2]) || "remove".equalsIgnoreCase(args[2]))) {
                     ArrayList<String> configured = new ArrayList<>(plugin.getConfig().getStringList("koth.activation.zones"));
                     return filterCompletions(configured, args[3]);
+                }
+                break;
+            case "conquest":
+                if (!PermissionNode.has(player, "admin.conquest")) {
+                    break;
+                }
+                if (args.length == 3) {
+                    return filterCompletions(List.of("start", "stop", "status", "assign", "unassign", "zones"), args[2]);
+                }
+                if (args.length == 4 && ("assign".equalsIgnoreCase(args[2]) || "unassign".equalsIgnoreCase(args[2]) || "remove".equalsIgnoreCase(args[2]))) {
+                    ArrayList<String> options = new ArrayList<>();
+                    options.add(plugin.getConfig().getString("conquest.default-profile", "default"));
+                    options.addAll(plugin.getCapturePoints().keySet());
+                    return filterCompletions(options, args[3]);
+                }
+                if (args.length == 5 && ("assign".equalsIgnoreCase(args[2]) || "unassign".equalsIgnoreCase(args[2]) || "remove".equalsIgnoreCase(args[2]))) {
+                    return filterCompletions(new ArrayList<>(plugin.getCapturePoints().keySet()), args[4]);
                 }
                 break;
             default:

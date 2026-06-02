@@ -6,9 +6,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 
-/**
- * Per-zone shop configuration and data
- */
 public class ShopData {
     
     public enum AccessMode {
@@ -84,39 +81,64 @@ public class ShopData {
     }
     
     // Getters
+
     public String getZoneId() { return zoneId; }
+
     public boolean isEnabled() { return enabled; }
+
     public AccessMode getAccessMode() { return accessMode; }
+
     public StockSystem getStockSystem() { return stockSystem; }
+
     public LayoutMode getLayoutMode() { return layoutMode; }
+
     public PricingMode getPricingMode() { return pricingMode; }
+
     public RestockSchedule getRestockSchedule() { return restockSchedule; }
+
     public long getLastRestock() { return lastRestock; }
+
     public double getDynamicSensitivity() { return dynamicSensitivity; }
+
     public double getDynamicMin() { return dynamicMin; }
+
     public double getDynamicMax() { return dynamicMax; }
+
     public Map<Integer, ShopItemConfig> getItems() { return items; }
+
     public int getTotalBuys() { return totalBuys; }
+
     public int getTotalSells() { return totalSells; }
+
     public double getTotalRevenue() { return totalRevenue; }
     
     // Setters
+
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
+
     public void setAccessMode(AccessMode mode) { this.accessMode = mode; }
+
     public void setStockSystem(StockSystem system) { this.stockSystem = system; }
+
     public void setLayoutMode(LayoutMode mode) { this.layoutMode = mode; }
+
     public void setPricingMode(PricingMode mode) { this.pricingMode = mode; }
+
     public void setRestockSchedule(RestockSchedule schedule) { this.restockSchedule = schedule; }
+
     public void setLastRestock(long time) { this.lastRestock = time; }
+
     public void setDynamicSensitivity(double sensitivity) { this.dynamicSensitivity = sensitivity; }
+
     public void setDynamicMin(double min) { this.dynamicMin = min; }
+
     public void setDynamicMax(double max) { this.dynamicMax = max; }
     
     // Item management
+
     public void addItem(ShopItemConfig item) {
         items.put(item.getSlot(), item);
         
-        // Update categories
         String category = item.getCategory();
         categories.computeIfAbsent(category, k -> new ArrayList<>()).add(item);
     }
@@ -144,6 +166,7 @@ public class ShopData {
     }
     
     // Transaction tracking
+
     public void recordBuy(int quantity, double amount) {
         totalBuys += quantity;
         totalRevenue += amount;
@@ -155,6 +178,7 @@ public class ShopData {
     }
     
     // Restock logic
+
     public boolean needsRestock() {
         if (stockSystem != StockSystem.LIMITED) return false;
         if (restockSchedule == RestockSchedule.MANUAL) return false;
@@ -182,6 +206,7 @@ public class ShopData {
     }
     
     // Persistence
+
     public void save(File file) {
         YamlConfiguration config = new YamlConfiguration();
         
@@ -201,7 +226,6 @@ public class ShopData {
         config.set("statistics.total-sells", totalSells);
         config.set("statistics.total-revenue", totalRevenue);
         
-        // Save items
         int index = 0;
         for (ShopItemConfig item : items.values()) {
             ConfigurationSection itemSection = config.createSection("items." + index);
@@ -241,7 +265,6 @@ public class ShopData {
         data.totalSells = config.getInt("statistics.total-sells", 0);
         data.totalRevenue = config.getDouble("statistics.total-revenue", 0.0);
         
-        // Load items
         ConfigurationSection itemsSection = config.getConfigurationSection("items");
         if (itemsSection != null) {
             for (String key : itemsSection.getKeys(false)) {

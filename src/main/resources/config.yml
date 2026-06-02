@@ -3,7 +3,7 @@
 # Author: Logichh (Milin)
 # Discord: @milin001
 # Discord support server: https://discord.gg/t96nrf7Nav
-# Version: 1.1.2
+# Version: 1.1.4
 # ==============================================
 # 
 # This configuration file contains GLOBAL plugin settings.
@@ -153,6 +153,30 @@ koth:
       - "&8&lKOTH: {zone}"
       - "&7Status: &c{koth_status}"
       - "&7Waiting for next event"
+
+# ══════════════════════════════════════════════
+# CONQUEST MODE
+# Ticket-based multi-zone warfare for Towny owners
+# ══════════════════════════════════════════════
+conquest:
+  enabled: false
+  default-profile: "default"
+  tick-interval-seconds: 30
+  profiles:
+    default:
+      owner-type: "town"
+      starting-tickets: 500
+      capture-ticket-gain: 0
+      capture-ticket-loss: 25
+      point-drain: 1
+      min-teams: 2
+      teams: []
+      zones: []
+
+# Global refresh behavior for capturer-bound potion rewards.
+# Individual potion effects are configured per zone in zone-template.yml or zones/<id>_config.yml.
+potion-rewards:
+  refresh-interval-ticks: 160
 
 # Towny integration mode and owner behavior
 # The "mode" setting determines how the plugin integrates with Towny for capture ownership and related features:
@@ -403,6 +427,20 @@ bluemap:
     enabled: true
     icon: "skull"
     icon-size: 16
+
+# ══════════════════════════════════════════════
+# GLOBAL PL3XMAP SETTINGS
+# These apply to all zones' Pl3xMap integration
+# ══════════════════════════════════════════════
+
+pl3xmap:
+  enabled: false
+  layer-id: capturezones
+  layer-label: Capture Zones
+  priority: 10
+  center-marker:
+    enabled: true
+    icon: "blueflag"
 
 # ══════════════════════════════════════════════
 # HOLOGRAM SETTINGS

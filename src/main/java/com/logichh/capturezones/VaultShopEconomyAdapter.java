@@ -4,10 +4,6 @@ import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.RegisteredServiceProvider;
-
-/**
- * Shop economy adapter backed by a Vault economy provider.
- */
 public final class VaultShopEconomyAdapter implements ShopEconomyAdapter {
 
     private final CaptureZones plugin;
@@ -18,29 +14,34 @@ public final class VaultShopEconomyAdapter implements ShopEconomyAdapter {
     }
 
     @Override
+
     public String getProviderName() {
         Economy provider = getProvider();
         return provider == null ? "Vault" : "Vault (" + provider.getName() + ")";
     }
 
     @Override
+
     public boolean isAvailable() {
         return getProvider() != null;
     }
 
     @Override
+
     public boolean hasAccount(Player player) {
         Economy provider = getProvider();
         return provider != null && player != null && provider.hasAccount(player);
     }
 
     @Override
+
     public boolean has(Player player, double amount) {
         Economy provider = getProvider();
         return provider != null && player != null && provider.has(player, amount);
     }
 
     @Override
+
     public boolean withdraw(Player player, double amount, String reason) {
         Economy provider = getProvider();
         return provider != null
@@ -49,6 +50,7 @@ public final class VaultShopEconomyAdapter implements ShopEconomyAdapter {
     }
 
     @Override
+
     public boolean deposit(Player player, double amount, String reason) {
         Economy provider = getProvider();
         return provider != null
@@ -57,11 +59,13 @@ public final class VaultShopEconomyAdapter implements ShopEconomyAdapter {
     }
 
     @Override
+
     public boolean supportsOwnerType(CaptureOwnerType ownerType) {
         return ownerType == CaptureOwnerType.PLAYER;
     }
 
     @Override
+
     public boolean depositToOwner(String ownerName, CaptureOwnerType ownerType, double amount, String reason) {
         Economy provider = getProvider();
         if (provider == null || ownerType != CaptureOwnerType.PLAYER || ownerName == null || ownerName.trim().isEmpty()) {
@@ -103,3 +107,4 @@ public final class VaultShopEconomyAdapter implements ShopEconomyAdapter {
         return economy;
     }
 }
+

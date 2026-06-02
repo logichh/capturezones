@@ -38,6 +38,7 @@ public class CuboidSelectionManager implements Listener {
 
     private final CaptureZones plugin;
     private final NamespacedKey selectionToolKey;
+
     private final Map<UUID, PendingCuboidSelection> pendingSelections = new HashMap<>();
 
     public CuboidSelectionManager(CaptureZones plugin) {
@@ -135,6 +136,7 @@ public class CuboidSelectionManager implements Listener {
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
+
     public void onSelectionToolInteract(PlayerInteractEvent event) {
         if (event.getHand() != EquipmentSlot.HAND) {
             return;
@@ -189,6 +191,7 @@ public class CuboidSelectionManager implements Listener {
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+
     public void onPlayerDropSelectionTool(PlayerDropItemEvent event) {
         if (!isSelectionTool(event.getItemDrop().getItemStack())) {
             return;
@@ -201,6 +204,7 @@ public class CuboidSelectionManager implements Listener {
     }
 
     @EventHandler
+
     public void onPlayerQuit(PlayerQuitEvent event) {
         removeSelectionTools(event.getPlayer());
         pendingSelections.remove(event.getPlayer().getUniqueId());
@@ -459,7 +463,7 @@ public class CuboidSelectionManager implements Listener {
 
     private void spawnOutlineParticle(World world, int x, int y, int z, Particle.DustOptions dustOptions) {
         Location location = new Location(world, x + 0.5, y + 0.5, z + 0.5);
-        world.spawnParticle(Particle.REDSTONE, location, 1, 0.0, 0.0, 0.0, 0.0, dustOptions);
+        world.spawnParticle(Particle.DUST, location, 1, 0.0, 0.0, 0.0, 0.0, dustOptions);
     }
 
     private static final class PendingCuboidSelection {

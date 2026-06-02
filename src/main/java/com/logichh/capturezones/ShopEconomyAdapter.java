@@ -2,9 +2,6 @@ package com.logichh.capturezones;
 
 import org.bukkit.entity.Player;
 
-/**
- * Abstraction for shop money transactions.
- */
 public interface ShopEconomyAdapter {
 
     String getProviderName();

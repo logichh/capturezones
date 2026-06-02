@@ -24,8 +24,11 @@ import net.md_5.bungee.api.chat.TextComponent;
 public class CaptureEvents
 implements Listener {
     private CaptureZones plugin;
+
     private Map<UUID, CapturePoint> playerZones = new HashMap<UUID, CapturePoint>();
+
     private Map<UUID, Integer> actionBarTasks = new HashMap<UUID, Integer>();
+
     private final Map<String, Long> autoCaptureEntryAttempts = new HashMap<>();
 
     public CaptureEvents(CaptureZones plugin) {
@@ -33,12 +36,12 @@ implements Listener {
     }
 
     @EventHandler
+
     public void onPlayerMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
         Location to = event.getTo();
         Location from = event.getFrom();
 
-        // Skip if player hasn't moved to a different block
         if (from != null && to != null && 
             from.getBlockX() == to.getBlockX() && 
             from.getBlockY() == to.getBlockY() && 
@@ -89,34 +92,30 @@ implements Listener {
             return;
         }
 
-            boolean wasInZone = from != null && this.plugin.isWithinZone(point, from);
-            boolean isInZone = this.plugin.isWithinZone(point, to);
+        boolean wasInZone = from != null && this.plugin.isWithinZone(point, from);
+        boolean isInZone = this.plugin.isWithinZone(point, to);
+        boolean wasInBuffer = from != null && this.plugin.isWithinZone(point, from, 1);
+        boolean isInBuffer = this.plugin.isWithinZone(point, to, 1);
 
-            // Check if player is in the buffer zone (1 chunk outside zone radius)
-            boolean wasInBuffer = from != null && this.plugin.isWithinZone(point, from, 1);
-            boolean isInBuffer = this.plugin.isWithinZone(point, to, 1);
+        if (!wasInBuffer && isInBuffer) {
+            this.plugin.sendNotification(player, Messages.get("messages.zone.approaching", Map.of("zone", point.getName())));
+        }
 
-            // Buffer zone messages
-            if (!wasInBuffer && isInBuffer) {
-                this.plugin.sendNotification(player, Messages.get("messages.zone.approaching", Map.of("zone", point.getName())));
-            }
+        if (!wasInZone && isInZone) {
+            this.plugin.sendNotification(player, Messages.get("messages.zone.entered", Map.of("zone", point.getName())));
+            this.startContinuousActionBar(player, point);
+            this.attemptAutoCaptureOnEntry(player, point, to);
+            return;
+        }
 
-            // Capture zone messages
-            if (!wasInZone && isInZone) {
-                this.plugin.sendNotification(player, Messages.get("messages.zone.entered", Map.of("zone", point.getName())));
-                this.startContinuousActionBar(player, point);
-                this.attemptAutoCaptureOnEntry(player, point, to);
-                return;
-            }
-
-            // Left zone message
-            if (wasInZone && !isInZone) {
-                this.plugin.sendNotification(player, Messages.get("messages.zone.left", Map.of("zone", point.getName())));
-                this.stopContinuousActionBar(player);
-            }
+        if (wasInZone && !isInZone) {
+            this.plugin.sendNotification(player, Messages.get("messages.zone.left", Map.of("zone", point.getName())));
+            this.stopContinuousActionBar(player);
+        }
     }
 
     @EventHandler
+
     public void onPlayerQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
         this.stopContinuousActionBar(player);

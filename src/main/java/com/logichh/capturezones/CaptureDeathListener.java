@@ -33,6 +33,7 @@ implements Listener {
     }
 
     @EventHandler
+
     public void onPlayerDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
         String killerName = resolveKillerName(player);

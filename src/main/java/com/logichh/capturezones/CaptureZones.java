@@ -98,7 +98,7 @@ extends JavaPlugin {
     public Map<String, BukkitTask> boundaryTasks = Collections.synchronizedMap(new HashMap<>());
     private final Map<UUID, Set<String>> boundaryPointsByPlayer = Collections.synchronizedMap(new HashMap<>());
     private final Map<UUID, BukkitTask> boundaryPlayerTasks = Collections.synchronizedMap(new HashMap<>());
-    public Map<UUID, Boolean> disabledNotifications = Collections.synchronizedMap(new HashMap<>()); // Track who has disabled notifications
+    public Map<UUID, Boolean> disabledNotifications = Collections.synchronizedMap(new HashMap<>());
     private BukkitTask hourlyRewardTask;
     private Map<String, Long> lastHourlyRewardTimes = Collections.synchronizedMap(new HashMap<>());
     private final Map<String, Long> hourlyRewardNextDueTimes = Collections.synchronizedMap(new HashMap<>());
@@ -108,6 +108,8 @@ extends JavaPlugin {
     private List<MapProvider> mapProviders = new ArrayList<>();
     private HologramManager hologramManager;
     private KothManager kothManager;
+    private ConquestManager conquestManager;
+    private PotionRewardManager potionRewardManager;
     private UpdateZones townUpdater;  // Keep for backward compatibility with Dynmap
     private boolean worldGuardEnabled = false;
     private ReinforcementListener reinforcementListener;
@@ -151,31 +153,23 @@ extends JavaPlugin {
     private boolean capturePointsSaveDirty = false;
     private final Map<String, Long> lastBossBarAudienceSyncAt = Collections.synchronizedMap(new HashMap<>());
     
-    // Statistics system
     private StatisticsManager statisticsManager;
     private StatisticsGUI statisticsGUI;
-    
-    // Zone configuration manager
+
     private ZoneConfigManager zoneConfigManager;
-    
-    // Discord webhook manager
+
     private DiscordWebhook discordWebhook;
     private PermissionRewardManager permissionRewardManager;
-    
-    // Shop system
+
     private ShopManager shopManager;
     private ShopListener shopListener;
     private ShopEconomyAdapter shopEconomyAdapter;
     private CuboidSelectionManager cuboidSelectionManager;
     private ZoneItemRewardEditor zoneItemRewardEditor;
-    
-    // Update checker
-    private UpdateChecker updateChecker;
 
-    // PlaceholderAPI expansion
+    private UpdateChecker updateChecker;
     private CaptureZonesPlaceholderExpansion placeholderExpansion;
-    
-    // Data migration manager
+
     private DataMigrationManager dataMigrationManager;
     private int lastLegacyTownOwnerRebindCount;
     private boolean townyAvailable;
@@ -242,6 +236,45 @@ extends JavaPlugin {
             } catch (IllegalArgumentException ignored) {
                 return HIGHEST;
             }
+        }
+    }
+
+    private enum MoneyPayoutMode {
+        OWNER_ACCOUNT,
+        SPLIT_ONLINE,
+        EACH_ONLINE,
+        EACH_RESIDENT;
+
+        private static MoneyPayoutMode fromConfigValue(String rawValue) {
+            if (rawValue == null || rawValue.trim().isEmpty()) {
+                return OWNER_ACCOUNT;
+            }
+            String normalized = rawValue.trim().replace('-', '_').replace(' ', '_').toUpperCase(Locale.ROOT);
+            try {
+                return MoneyPayoutMode.valueOf(normalized);
+            } catch (IllegalArgumentException ignored) {
+                return OWNER_ACCOUNT;
+            }
+        }
+    }
+
+    private static final class EconomyRewardPayoutResult {
+        private final boolean delivered;
+        private final double totalPaid;
+        private final int recipients;
+        private final int failedRecipients;
+        private final MoneyPayoutMode mode;
+
+        private EconomyRewardPayoutResult(boolean delivered, double totalPaid, int recipients, int failedRecipients, MoneyPayoutMode mode) {
+            this.delivered = delivered;
+            this.totalPaid = totalPaid;
+            this.recipients = recipients;
+            this.failedRecipients = failedRecipients;
+            this.mode = mode;
+        }
+
+        private static EconomyRewardPayoutResult none(MoneyPayoutMode mode) {
+            return new EconomyRewardPayoutResult(false, 0.0, 0, 0, mode);
         }
     }
 
@@ -386,43 +419,33 @@ extends JavaPlugin {
     public void onEnable() {
         migrateLegacyDataFolderIfNeeded();
 
-        // Save default config if it doesn't exist
         saveDefaultConfig();
         this.capturePointsFile = new File(getDataFolder(), "capture_points.yml");
-        
-        // Initialize messages system
+
         Messages.init(this);
-        
-        // Load config
+
         this.config = getConfig();
-        
-        // Create default config values if needed
+
         createDefaultConfig();
 
-        // Initialize add-missing-only schema migrations
         this.dataMigrationManager = new DataMigrationManager(this);
         this.dataMigrationManager.migrateCoreFiles(this.capturePointsFile);
 
-        // Initialize owner platform and Towny integration mode
         if (!initializeOwnerPlatform()) {
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
-        
-        // Validate config
+
         if (!validateConfig()) {
             getLogger().severe("Failed to validate config! Disabling plugin...");
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
-        
-        // Load point types
+
         loadPointTypes();
-        
-        // Load capture zones
+
         loadCapturePoints();
-        
-        // Initialize zone configuration manager
+
         zoneConfigManager = new ZoneConfigManager(this);
         zoneConfigManager.migrateExistingZones();
         if (this.dataMigrationManager != null) {
@@ -430,33 +453,27 @@ extends JavaPlugin {
         }
         zoneConfigManager.loadAllZoneConfigs();
         invalidateCapturePointSpatialIndex();
-        
-        // Setup optional KOTH subsystem before map/hologram rendering
-        setupKothManager();
 
-        // Setup integrations
+        setupKothManager();
+        setupConquestManager();
         setupMapProviders();
         setupHolograms();
         setupPlaceholderApiExpansion();
         setupWorldGuard();
-        
-        // Initialize statistics system
+
         setupStatistics();
-        
-        // Initialize Discord webhook
+
         discordWebhook = new DiscordWebhook(this);
-        
-        // Initialize shop system
+
         setupShopSystem();
         setupPermissionRewards();
-        
-        // Start tasks
+        setupPotionRewardManager();
+
         startSessionTimeoutChecker();
         startAutoSave();
         startHourlyRewards();
         startWeeklyResetTask();
-        
-        // Register listeners
+
         getServer().getPluginManager().registerEvents(new CaptureEvents(this), this);
         getServer().getPluginManager().registerEvents(new CommandBlockListener(this), this);
         getServer().getPluginManager().registerEvents(new ZoneProtectionListener(this), this);
@@ -474,8 +491,7 @@ extends JavaPlugin {
         reinforcementListener = new ReinforcementListener(this);
         getServer().getPluginManager().registerEvents(reinforcementListener, this);
         setupMobSpawner();
-        
-        // Register commands
+
         CaptureCommands commandExecutor = new CaptureCommands(this, cuboidSelectionManager, zoneItemRewardEditor);
         boolean registered = false;
         registered |= registerCommandBinding("capturezones", commandExecutor);
@@ -485,25 +501,21 @@ extends JavaPlugin {
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
-        
-        // Auto-show boundaries for all online players if enabled
+
         if (this.config.getBoolean("settings.auto-show-boundaries", true)) {
             for (Player player : Bukkit.getOnlinePlayers()) {
                 this.autoShowBoundariesForPlayer(player);
             }
         }
-        
-        // Display startup banner
+
         getLogger().info("═════════════════════════════════════════════════════════");
         getLogger().info("                  CaptureZones");
         getLogger().info("                 v" + getDescription().getVersion() + " by Milin");
         getLogger().info("═════════════════════════════════════════════════════════");
         getLogger().info("CaptureZones has been enabled!");
 
-        // Initialize bStats metrics
         initializeMetrics();
-        
-        // Initialize update checker and check for updates
+
         if (getConfig().getBoolean("settings.check-for-updates", true)) {
             updateChecker = new UpdateChecker(this);
             updateChecker.checkForUpdates().thenAccept(updateAvailable -> {
@@ -522,22 +534,17 @@ extends JavaPlugin {
     private void initializeMetrics() {
         int pluginId = 28044; // bStats plugin ID
         Metrics metrics = new Metrics(this, pluginId);
-
-        // Existing baseline charts
         metrics.addCustomChart(new SingleLineChart("capture_points", () -> this.capturePoints.size()));
         metrics.addCustomChart(new SingleLineChart("active_sessions", () -> this.activeSessions.size()));
 
-        // Capacity and scale charts
         metrics.addCustomChart(new SingleLineChart("max_capture_points_limit", this::getMaxCapturePointsLimit));
         metrics.addCustomChart(new SingleLineChart("max_active_captures_limit", this::getMaxActiveCapturesLimit));
         metrics.addCustomChart(new SingleLineChart("koth_managed_zones", this::countManagedKothZonesMetric));
         metrics.addCustomChart(new SingleLineChart("zones_visible_on_map", this::countVisibleOnMapZonesMetric));
         metrics.addCustomChart(new SingleLineChart("zones_with_positive_reward", this::countPositiveRewardZonesMetric));
 
-        // Distribution charts
         metrics.addCustomChart(new MultiLineChart("zone_shape_distribution", this::buildZoneShapeDistributionMetric));
 
-        // Feature-mode and toggle charts
         metrics.addCustomChart(new SimplePie("koth_enabled", () -> booleanState(this.config.getBoolean("koth.enabled", false))));
         metrics.addCustomChart(new SimplePie("koth_schedule_enabled", () -> booleanState(this.config.getBoolean("koth.schedule.enabled", true))));
         metrics.addCustomChart(new SimplePie("koth_selection_mode", this::resolveKothSelectionModeMetric));
@@ -815,7 +822,7 @@ extends JavaPlugin {
                         copiedCount[0]++;
                     }
                 } catch (Exception ignored) {
-                    // Best-effort migration: continue copying other files.
+                    // continue copying other files
                 }
             });
         }
@@ -1703,7 +1710,6 @@ extends JavaPlugin {
         broadcastMessage(message);
         playCaptureSound("point-reset");
         
-        // Send Discord webhook notification for weekly reset
         if (discordWebhook != null) {
             discordWebhook.sendWeeklyReset(resetCount);
         }
@@ -1739,11 +1745,12 @@ extends JavaPlugin {
 
         cleanupPlaceholderApiExpansion();
         cleanupKothManager();
+        cleanupConquestManager();
+        cleanupPotionRewardManager();
         cleanupPermissionRewards();
         cleanupHolograms();
         cleanupMapProviders();
-        
-        // Save and cleanup shop system
+
         if (shopManager != null || shopListener != null || shopEconomyAdapter != null) {
             shutdownShopSystem();
             getLogger().info("Shop system shutdown complete");
@@ -1804,6 +1811,8 @@ extends JavaPlugin {
         this.mapProviders.clear();
         this.hologramManager = null;
         this.kothManager = null;
+        this.conquestManager = null;
+        this.potionRewardManager = null;
         this.townUpdater = null;
         this.placeholderExpansion = null;
         this.hourlyRewardTask = null;
@@ -1978,6 +1987,60 @@ extends JavaPlugin {
                     "&7Waiting for next event"
                 )
             );
+        }
+        if (!this.config.contains("conquest.enabled")) {
+            this.config.set("conquest.enabled", false);
+        }
+        if (!this.config.contains("conquest.default-profile")) {
+            this.config.set("conquest.default-profile", "default");
+        }
+        if (!this.config.contains("conquest.tick-interval-seconds")) {
+            this.config.set("conquest.tick-interval-seconds", 30);
+        }
+        if (!this.config.contains("conquest.profiles.default.owner-type")) {
+            this.config.set("conquest.profiles.default.owner-type", "town");
+        }
+        if (!this.config.contains("conquest.profiles.default.starting-tickets")) {
+            this.config.set("conquest.profiles.default.starting-tickets", 500);
+        }
+        if (!this.config.contains("conquest.profiles.default.capture-ticket-gain")) {
+            this.config.set("conquest.profiles.default.capture-ticket-gain", 0);
+        }
+        if (!this.config.contains("conquest.profiles.default.capture-ticket-loss")) {
+            this.config.set("conquest.profiles.default.capture-ticket-loss", 25);
+        }
+        if (!this.config.contains("conquest.profiles.default.point-drain")) {
+            this.config.set("conquest.profiles.default.point-drain", 1);
+        }
+        if (!this.config.contains("conquest.profiles.default.min-teams")) {
+            this.config.set("conquest.profiles.default.min-teams", 2);
+        }
+        if (!this.config.contains("conquest.profiles.default.teams")) {
+            this.config.set("conquest.profiles.default.teams", new ArrayList<>());
+        }
+        if (!this.config.contains("conquest.profiles.default.zones")) {
+            this.config.set("conquest.profiles.default.zones", new ArrayList<>());
+        }
+        if (!this.config.contains("potion-rewards.refresh-interval-ticks")) {
+            this.config.set("potion-rewards.refresh-interval-ticks", 160);
+        }
+        if (!this.config.contains("pl3xmap.enabled")) {
+            this.config.set("pl3xmap.enabled", false);
+        }
+        if (!this.config.contains("pl3xmap.layer-id")) {
+            this.config.set("pl3xmap.layer-id", "capturezones");
+        }
+        if (!this.config.contains("pl3xmap.layer-label")) {
+            this.config.set("pl3xmap.layer-label", "Capture Zones");
+        }
+        if (!this.config.contains("pl3xmap.priority")) {
+            this.config.set("pl3xmap.priority", 10);
+        }
+        if (!this.config.contains("pl3xmap.center-marker.enabled")) {
+            this.config.set("pl3xmap.center-marker.enabled", true);
+        }
+        if (!this.config.contains("pl3xmap.center-marker.icon")) {
+            this.config.set("pl3xmap.center-marker.icon", "blueflag");
         }
         try {
             this.saveConfig();
@@ -3399,8 +3462,7 @@ extends JavaPlugin {
 
     private void setupMapProviders() {
         mapProviders.clear();
-        
-        // Initialize Dynmap if enabled
+
         if (getConfig().getBoolean("dynmap.enabled", true)) {
             try {
                 DynmapProvider dynmapProvider = new DynmapProvider(this);
@@ -3422,8 +3484,7 @@ extends JavaPlugin {
         } else {
             getLogger().info("Dynmap integration disabled in config.");
         }
-        
-        // Initialize BlueMap if enabled
+
         if (getConfig().getBoolean("bluemap.enabled", true)) {
             try {
                 BlueMapProvider blueMapProvider = new BlueMapProvider(this);
@@ -3439,8 +3500,23 @@ extends JavaPlugin {
         } else {
             getLogger().info("BlueMap integration disabled in config.");
         }
-        
-        // Log active map providers
+
+        if (getConfig().getBoolean("pl3xmap.enabled", false)) {
+            try {
+                Pl3xMapProvider pl3xMapProvider = new Pl3xMapProvider(this);
+                if (pl3xMapProvider.initialize()) {
+                    mapProviders.add(pl3xMapProvider);
+                }
+            } catch (NoClassDefFoundError | Exception e) {
+                getLogger().warning("Failed to initialize Pl3xMap: " + e.getMessage());
+                if (getConfig().getBoolean("settings.debug-mode", false)) {
+                    e.printStackTrace();
+                }
+            }
+        } else {
+            getLogger().info("Pl3xMap integration disabled in config.");
+        }
+
         if (mapProviders.isEmpty()) {
             getLogger().warning("No map providers active. Capture points will not be visible on web maps.");
         } else {
@@ -3467,11 +3543,41 @@ extends JavaPlugin {
         this.kothManager.initialize();
     }
 
+    private void setupConquestManager() {
+        if (this.conquestManager == null) {
+            this.conquestManager = new ConquestManager(this);
+        }
+        this.conquestManager.initialize();
+    }
+
+    private void setupPotionRewardManager() {
+        if (this.potionRewardManager == null) {
+            this.potionRewardManager = new PotionRewardManager(this);
+            this.potionRewardManager.initialize();
+            return;
+        }
+        this.potionRewardManager.reload();
+    }
+
     private void cleanupKothManager() {
         if (this.kothManager == null) {
             return;
         }
         this.kothManager.shutdown();
+    }
+
+    private void cleanupConquestManager() {
+        if (this.conquestManager == null) {
+            return;
+        }
+        this.conquestManager.shutdown();
+    }
+
+    private void cleanupPotionRewardManager() {
+        if (this.potionRewardManager == null) {
+            return;
+        }
+        this.potionRewardManager.shutdown();
     }
 
     private void setupPermissionRewards() {
@@ -3781,6 +3887,92 @@ extends JavaPlugin {
         return this.ownerPlatform != null && this.ownerPlatform.depositControlReward(owner, amount, reason);
     }
 
+    private EconomyRewardPayoutResult distributeEconomyReward(CapturePoint point, CaptureOwner owner, double amount, String reason) {
+        MoneyPayoutMode mode = resolveMoneyPayoutMode(point != null ? point.getId() : null);
+        if (point == null || owner == null || owner.getType() == null || amount <= 0.0) {
+            return EconomyRewardPayoutResult.none(mode);
+        }
+
+        if (mode == MoneyPayoutMode.OWNER_ACCOUNT || !(this.ownerPlatform instanceof TownyOwnerPlatformAdapter)) {
+            boolean deposited = canDepositOwnerReward(owner.getType()) && depositOwnerReward(owner, amount, reason);
+            return deposited
+                ? new EconomyRewardPayoutResult(true, amount, 1, 0, mode)
+                : EconomyRewardPayoutResult.none(mode);
+        }
+
+        TownyOwnerPlatformAdapter townyAdapter = (TownyOwnerPlatformAdapter) this.ownerPlatform;
+        int maxRecipients = resolveMoneyPayoutMaxRecipients(point.getId());
+        if (mode == MoneyPayoutMode.SPLIT_ONLINE || mode == MoneyPayoutMode.EACH_ONLINE) {
+            List<Player> recipients = townyAdapter.getOnlineOwnerPlayers(owner);
+            if (recipients.isEmpty()) {
+                return EconomyRewardPayoutResult.none(mode);
+            }
+            if (maxRecipients > 0 && recipients.size() > maxRecipients) {
+                recipients = new ArrayList<>(recipients.subList(0, maxRecipients));
+            }
+            double perRecipient = mode == MoneyPayoutMode.SPLIT_ONLINE ? amount / recipients.size() : amount;
+            double totalPaid = 0.0;
+            int paid = 0;
+            int failed = 0;
+            for (Player recipient : recipients) {
+                if (depositPlayerReward(recipient, perRecipient, reason)) {
+                    totalPaid += perRecipient;
+                    paid++;
+                } else {
+                    failed++;
+                }
+            }
+            return new EconomyRewardPayoutResult(paid > 0, totalPaid, paid, failed, mode);
+        }
+
+        List<String> recipients = townyAdapter.getOwnerResidentNames(owner);
+        if (recipients.isEmpty()) {
+            return EconomyRewardPayoutResult.none(mode);
+        }
+        if (maxRecipients > 0 && recipients.size() > maxRecipients) {
+            recipients = new ArrayList<>(recipients.subList(0, maxRecipients));
+        }
+        double totalPaid = 0.0;
+        int paid = 0;
+        int failed = 0;
+        int batchSize = resolveMoneyPayoutBatchSize(point.getId());
+        int processedThisTick = 0;
+        for (String residentName : recipients) {
+            if (townyAdapter.depositResidentReward(residentName, amount, reason)) {
+                totalPaid += amount;
+                paid++;
+            } else {
+                failed++;
+            }
+            processedThisTick++;
+            if (processedThisTick >= batchSize) {
+                processedThisTick = 0;
+            }
+        }
+        return new EconomyRewardPayoutResult(paid > 0, totalPaid, paid, failed, mode);
+    }
+
+    private MoneyPayoutMode resolveMoneyPayoutMode(String pointId) {
+        String raw = this.zoneConfigManager != null
+            ? this.zoneConfigManager.getString(pointId, "rewards.money.payout-mode", "OWNER_ACCOUNT")
+            : "OWNER_ACCOUNT";
+        return MoneyPayoutMode.fromConfigValue(raw);
+    }
+
+    private int resolveMoneyPayoutMaxRecipients(String pointId) {
+        int configured = this.zoneConfigManager != null
+            ? this.zoneConfigManager.getInt(pointId, "rewards.money.max-recipients", 250)
+            : 250;
+        return Math.max(0, Math.min(5000, configured));
+    }
+
+    private int resolveMoneyPayoutBatchSize(String pointId) {
+        int configured = this.zoneConfigManager != null
+            ? this.zoneConfigManager.getInt(pointId, "rewards.money.batch-size", 25)
+            : 25;
+        return Math.max(1, Math.min(250, configured));
+    }
+
     public List<String> grantConfiguredPermissionRewardsToPlayer(String pointId, Player recipient, String sourcePrefix) {
         if (recipient == null || !recipient.isOnline() || recipient.isDead() || this.permissionRewardManager == null) {
             return Collections.emptyList();
@@ -3842,10 +4034,8 @@ extends JavaPlugin {
 
     private void setupMobSpawner() {
         try {
-            // Create vanilla mob spawner as the base
             VanillaMobSpawner vanillaSpawner = new VanillaMobSpawner(this);
             
-            // Check if MythicMobs integration is enabled in config (global or per-zone)
             boolean mythicEnabled = false;
             if (zoneConfigManager != null) {
                 mythicEnabled = zoneConfigManager.getDefaultBoolean("reinforcements.mythicmobs.enabled", false);
@@ -3864,7 +4054,6 @@ extends JavaPlugin {
             MobSpawner spawner;
             
             if (mythicEnabled) {
-                // Try to create MythicMobs handler with vanilla fallback
                 try {
                     MythicMobsHandler mythicHandler = new MythicMobsHandler(this, vanillaSpawner);
                     spawner = mythicHandler;
@@ -3875,19 +4064,16 @@ extends JavaPlugin {
                     spawner = vanillaSpawner;
                 }
             } else {
-                // Use vanilla spawner
                 spawner = vanillaSpawner;
                 getLogger().info("Using vanilla mob spawning for reinforcements.");
             }
             
-            // Set the spawner in the reinforcement listener
             if (reinforcementListener != null) {
                 reinforcementListener.setMobSpawner(spawner);
             } else {
                 getLogger().warning("ReinforcementListener not initialized! Mob spawner cannot be set.");
             }
             
-            // Log configured mobs if debug mode is enabled
             if (getConfig().getBoolean("settings.debug-mode", false)) {
                 getLogger().info("Configured mobs: " + String.join(", ", spawner.getConfiguredMobs()));
             }
@@ -3898,43 +4084,34 @@ extends JavaPlugin {
         }
     }
     
-    /**
-     * Initialize statistics tracking system
-     */
     private void setupStatistics() {
         try {
             getLogger().info("Initializing statistics system...");
-            
-            // Check if statistics are enabled in config
+
             boolean statsEnabled = getConfig().getBoolean("statistics.enabled", true);
-            
+
             if (!statsEnabled) {
                 getLogger().info("Statistics system is disabled in config.");
                 return;
             }
-            
-            // Initialize statistics manager
+
             statisticsManager = new StatisticsManager(this);
             getLogger().info("Statistics manager initialized.");
-            
-            // Initialize statistics GUI
+
             statisticsGUI = new StatisticsGUI(this, statisticsManager);
             getLogger().info("Statistics GUI initialized.");
-            
-            // Register GUI listener
+
             getServer().getPluginManager().registerEvents(new StatisticsGUIListener(this, statisticsGUI), this);
             getLogger().info("Statistics GUI listener registered.");
-            
-            // Register statistics tracking listener
+
             getServer().getPluginManager().registerEvents(new StatisticsTrackingListener(this), this);
             getLogger().info("Statistics tracking listener registered.");
-            
-            // Schedule auto-save task
+
             startStatisticsAutoSaveTask();
-            
+
             int saveInterval = Math.max(30, getConfig().getInt("statistics.auto-save-interval", 300));
             getLogger().info("Statistics system enabled with auto-save every " + saveInterval + " seconds.");
-            
+
         } catch (Exception e) {
             getLogger().severe("Error setting up statistics system: " + e.getMessage());
             e.printStackTrace();
@@ -3957,14 +4134,10 @@ extends JavaPlugin {
         }, saveIntervalSeconds * 20L, saveIntervalSeconds * 20L);
     }
     
-    /**
-     * Setup shop system
-     */
     private void setupShopSystem() {
         try {
-            // Check if shop system is enabled in config
             boolean shopsEnabled = getConfig().getBoolean("shops.enabled", false);
-            
+
             if (!shopsEnabled) {
                 shutdownShopSystem();
                 getLogger().info("Shop system is disabled in config.");
@@ -3978,22 +4151,20 @@ extends JavaPlugin {
                 return;
             }
             this.shopEconomyAdapter = adapter;
-            
-            // Initialize shop manager
+
             if (shopManager == null) {
                 shopManager = new ShopManager(this);
                 getLogger().info("Shop manager initialized.");
             }
-            
-            // Initialize shop listener
+
             if (shopListener == null) {
                 shopListener = new ShopListener(this);
                 getServer().getPluginManager().registerEvents(shopListener, this);
                 getLogger().info("Shop listener registered.");
             }
-            
+
             getLogger().info("Shop system enabled using " + adapter.getProviderName() + " economy. Use /cap shop to access zone shops.");
-            
+
         } catch (Exception e) {
             getLogger().severe("Error setting up shop system: " + e.getMessage());
             e.printStackTrace();
@@ -4135,11 +4306,13 @@ extends JavaPlugin {
         cleanupHolograms();
         cleanupMapProviders();
         setupKothManager();
+        setupConquestManager();
         setupMapProviders();
         setupHolograms();
         setupPlaceholderApiExpansion();
         setupWorldGuard();
         setupPermissionRewards();
+        setupPotionRewardManager();
         if (this.hasMapProviders()) {
             this.updateAllMarkers();
         }
@@ -4196,10 +4369,8 @@ extends JavaPlugin {
             this.config = this.getConfig();
         }
 
-        // Core schema migration (config first, then other owned files)
         this.dataMigrationManager.migrateCoreFiles(this.capturePointsFile);
 
-        // Zone schema repair (template + every zone config)
         if (this.zoneConfigManager != null) {
             this.zoneConfigManager.reloadDefaults();
             this.zoneConfigManager.migrateExistingZones();
@@ -4209,7 +4380,6 @@ extends JavaPlugin {
             this.dataMigrationManager.migrateZoneFiles();
         }
 
-        // Refresh in-memory config and components that depend on config values
         this.reloadConfig();
         this.config = this.getConfig();
         this.loadPointTypes();
@@ -4226,6 +4396,12 @@ extends JavaPlugin {
         invalidateHourlyRewardSchedule();
         if (this.kothManager != null) {
             this.kothManager.reload();
+        }
+        if (this.conquestManager != null) {
+            this.conquestManager.reload();
+        }
+        if (this.potionRewardManager != null) {
+            this.potionRewardManager.reload();
         }
 
         this.lastLegacyTownOwnerRebindCount = repairLegacyTownOwnerIds();
@@ -4602,7 +4778,6 @@ extends JavaPlugin {
         glassLoc.setY((double)world.getHighestBlockYAt(glassLoc));
         Location beaconLoc = glassLoc.clone().subtract(0.0, 1.0, 0.0);
         
-        // Store original blocks before modifying them
         for (int x = -1; x <= 1; ++x) {
             for (int z = -1; z <= 1; ++z) {
                 Location ironLoc = beaconLoc.clone().add((double)x, -1.0, (double)z);
@@ -4613,7 +4788,6 @@ extends JavaPlugin {
         storeOriginalBlock(beaconLoc);
         storeOriginalBlock(glassLoc);
         
-        // Place beacon structure
         for (int x = -1; x <= 1; ++x) {
             for (int z = -1; z <= 1; ++z) {
                 Location ironLoc = beaconLoc.clone().add((double)x, -1.0, (double)z);
@@ -4700,7 +4874,6 @@ extends JavaPlugin {
 
         ZoneConfigManager zoneManager = zoneConfigManager;
 
-        // Check minimum online players
         int minOnlinePlayers = config.getInt("settings.min-online-players", 5);
         if (Bukkit.getOnlinePlayers().size() < minOnlinePlayers) {
             String message = Messages.get("errors.not-enough-players", Map.of("minplayers", String.valueOf(minOnlinePlayers)));
@@ -4721,16 +4894,24 @@ extends JavaPlugin {
             return false;
         }
 
+        if (this.conquestManager != null
+            && this.conquestManager.isActive()
+            && this.conquestManager.isZoneManaged(pointId)
+            && !this.conquestManager.canOwnerCapture(point, owner)) {
+            player.sendMessage(Messages.get("errors.capture-conquest-not-participant", Map.of(
+                "zone", point.getName()
+            )));
+            return false;
+        }
+
         Location locationForCaptureAttempt = captureAttemptLocation != null ? captureAttemptLocation : player.getLocation();
         if (!isWithinZone(point, locationForCaptureAttempt)) {
             player.sendMessage(Messages.get("messages.capture.not-in-radius"));
             return false;
         }
 
-        // Check if point is already being captured
         CaptureSession existingSession = activeSessions.get(pointId);
         if (existingSession != null) {
-            // If the point is being captured by the same owner, allow the player to join
             if (areOwnersEquivalent(existingSession.getOwner(), owner) ||
                 existingSession.getTownName().equalsIgnoreCase(ownerName)) {
                 existingSession.getPlayers().add(player);
@@ -4759,7 +4940,6 @@ extends JavaPlugin {
             return false;
         }
         
-        // Block self-capture when town already controls the point
         boolean preventSelfCapture = zoneManager != null
             ? zoneManager.getBoolean(pointId, "capture-conditions.prevent-self-capture", true)
             : config.getBoolean("capture-conditions.prevent-self-capture", true);
@@ -4809,10 +4989,8 @@ extends JavaPlugin {
             return false;
         }
 
-        // Create beacon at capture zone
         createBeacon(point.getLocation());
 
-        // Start preparation phase
         int preparationTime = zoneManager != null
             ? zoneManager.getInt(pointId, "capture.preparation.duration", 1)
             : config.getInt("capture.preparation.duration", 1);
@@ -4823,24 +5001,20 @@ extends JavaPlugin {
             ? zoneManager.getBoolean(pointId, "capture.preparation.show-countdown", true)
             : config.getBoolean("capture.preparation.show-countdown", true);
 
-        // Create capture session
         CaptureSession session = new CaptureSession(point, owner, player, preparationTime, captureTime);
         session.getPlayers().add(player);
         activeSessions.put(pointId, session);
         
-        // Track statistics for capture start
         if (statisticsManager != null) {
             statisticsManager.onCaptureStart(point.getId(), ownerName, player.getUniqueId());
         }
         
-        // Send Discord webhook notification
         if (discordWebhook != null) {
             Location loc = point.getLocation();
             String locationStr = loc.getBlockX() + ", " + loc.getBlockY() + ", " + loc.getBlockZ();
             discordWebhook.sendCaptureStarted(point.getId(), point.getName(), ownerName, locationStr);
         }
 
-        // Create boss bar
         BossBar bossBar = null;
         if (isBossbarEnabled(pointId)) {
             bossBar = Bukkit.createBossBar(
@@ -4852,17 +5026,14 @@ extends JavaPlugin {
             syncBossBarAudience(bossBar, point, owner, true);
         }
 
-        // Broadcast preparation message
         String prepMessage = Messages.get("messages.capture.started", Map.of(
             "town", ownerName,
             "point", point.getName()
         ));
         broadcastMessage(prepMessage);
         
-        // Play capture started sound
         playCaptureSoundAtLocation("capture-started", point.getLocation());
 
-        // Start preparation task
         final BossBar preparationBossBar = bossBar;
         BukkitTask prepTask = Bukkit.getScheduler().runTaskTimer(this, () -> {
             if (!session.isActive()) {
@@ -4889,13 +5060,11 @@ extends JavaPlugin {
             }
             
             if (timeLeft <= 0) {
-                // Start capture phase
                 startCapturePhase(point, owner, player);
                 return;
             }
 
             if (showCountdown && preparationBossBar != null) {
-                // Update boss bar with preparation time
                 String title = Messages.get("bossbar.preparation-timer", Map.of(
                     "zone", point.getName(),
                     "time", formatTime(timeLeft)
@@ -4905,7 +5074,6 @@ extends JavaPlugin {
             }
         }, 20L, 20L);
 
-        // Store preparation task
         captureTasks.put(pointId, prepTask);
 
         return true;
@@ -4919,19 +5087,16 @@ extends JavaPlugin {
             return;
         }
 
-        // Cancel the preparation task first
         BukkitTask prepTask = captureTasks.get(pointId);
         if (prepTask != null && !prepTask.isCancelled()) {
             prepTask.cancel();
         }
 
-        // Start capture phase first
         session.startCapturePhase();
         point.setCapturingOwner(owner);
         setBeaconBeamGlass(point, CAPTURE_BEAM_GLASS);
         this.captureProgressSoundBuckets.put(pointId, Math.max(0, session.getRemainingCaptureTime()) / 60);
 
-        // Update boss bar
         BossBar bossBar = captureBossBars.get(pointId);
         if (bossBar != null) {
             boolean showCountdown = isCaptureCountdownEnabled(pointId);
@@ -4947,17 +5112,14 @@ extends JavaPlugin {
             syncBossBarAudience(bossBar, point, null, false);
         }
 
-        // Broadcast capture phase start message only once
         String phaseMessage = Messages.get("messages.capture.phase-started", Map.of(
             "town", ownerName,
             "zone", point.getName()
         ));
         broadcastMessage(phaseMessage);
         
-        // Play phase started sound
         playCaptureSoundAtLocation("capture-phase-started", point.getLocation());
         
-        // Start reinforcement waves
         if (reinforcementListener != null) {
             reinforcementListener.startReinforcementWaves(pointId, point);
         }
@@ -5007,7 +5169,6 @@ extends JavaPlugin {
         final int speedMaxExtraPlayersFinal = speedMaxExtraPlayers;
         final double speedPerExtraPlayerFinal = speedPerExtraPlayer;
         
-        // Start capture task
         BukkitTask captureTask = Bukkit.getScheduler().runTaskTimer(this, () -> {
             if (!session.isActive()) {
                 return;
@@ -5184,7 +5345,6 @@ extends JavaPlugin {
             previousOwner = normalizeOwner(this.defaultOwnerType, point.getControllingTown());
         }
 
-        // Set the controlling owner
         point.setControllingOwner(capturingOwner);
         point.setCapturingOwner(null);
         point.setCaptureProgress(0.0);
@@ -5193,7 +5353,6 @@ extends JavaPlugin {
         applyCaptureCooldown(point, pointId, CooldownTrigger.SUCCESS);
         applyAntiInstantRecaptureLocks(point, pointId, previousOwner, capturingOwner);
         
-        // Track statistics for capture completion
         if (statisticsManager != null && session != null) {
             java.util.Set<java.util.UUID> playerUUIDs = session.getPlayers().stream()
                 .map(org.bukkit.entity.Player::getUniqueId)
@@ -5207,7 +5366,6 @@ extends JavaPlugin {
             );
         }
         
-        // Send Discord webhook notification
         if (discordWebhook != null && session != null) {
             long captureTimeMs = System.currentTimeMillis() - session.getStartTime();
             int captureTimeSeconds = (int) (captureTimeMs / 1000);
@@ -5215,18 +5373,22 @@ extends JavaPlugin {
             discordWebhook.sendCaptureCompleted(point.getId(), point.getName(), capturingOwnerName, captureTimeStr);
         }
         
-        // Set the owner's color for map visualization
         String townColor = getOwnerColor(capturingOwner);
         point.setColor(townColor);
+
+        if (this.conquestManager != null) {
+            this.conquestManager.onCaptureComplete(point, previousOwner, capturingOwner);
+        }
+        if (this.potionRewardManager != null && session != null) {
+            this.potionRewardManager.onCaptureComplete(point, session.getInitiatorUUID());
+        }
         
-        // Broadcast capture completion message only once
         String completeMessage = Messages.get("messages.capture.complete", Map.of(
             "town", capturingOwnerName,
             "zone", point.getName()
         ));
         broadcastMessage(completeMessage);
         
-        // Send personal message to capturing players
         String personalMessage = Messages.get("messages.capture.congratulations", Map.of("zone", point.getName()));
         for (Player player : Bukkit.getOnlinePlayers()) {
             try {
@@ -5239,10 +5401,8 @@ extends JavaPlugin {
             }
         }
         
-        // Play capture complete sound
         playCaptureSoundAtLocation("capture-complete", point.getLocation());
 
-        // First capture bonus after weekly reset
         boolean bonusEnabled = zoneConfigManager != null
             ? zoneConfigManager.getBoolean(pointId, "weekly-reset.first-capture-bonus.enabled", true)
             : this.config.getBoolean("weekly-reset.first-capture-bonus.enabled", true);
@@ -5273,7 +5433,6 @@ extends JavaPlugin {
                         "amount", String.format("%.1f", bonus)
                     )));
 
-                    // Send Discord webhook notification for first capture bonus
                     if (discordWebhook != null) {
                         discordWebhook.sendFirstCaptureBonus(point.getId(), point.getName(), capturingOwnerName, bonus);
                     }
@@ -5286,10 +5445,8 @@ extends JavaPlugin {
         refreshPointVisuals(pointId);
         invalidateHourlyRewardSchedule();
         
-        // Log successful capture
         logSuccessfulCapture(point.getId());
         
-        // Save capture zones
         saveCapturePoints();
     }
 
@@ -5314,18 +5471,15 @@ extends JavaPlugin {
             playCaptureSound("capture-failed");
         }
         
-        // Track statistics for failed capture
         if (statisticsManager != null) {
             statisticsManager.onCaptureFailed(normalizedPointId, session.getTownName(), session.getInitiatorUUID());
         }
         
-        // Send Discord webhook notification for capture failure
         if (discordWebhook != null) {
             String reason = safeVictimName + " was killed by " + safeKillerName;
             discordWebhook.sendCaptureFailed(normalizedPointId, pointName, session.getTownName(), reason);
         }
         
-        // Clear reinforcements
         if (reinforcementListener != null) {
             reinforcementListener.clearReinforcements(normalizedPointId);
         }
@@ -5392,12 +5546,10 @@ extends JavaPlugin {
             playCaptureSound("capture-failed");
         }
         
-        // Track statistics for failed capture (admin stopped)
         if (statisticsManager != null) {
             statisticsManager.onCaptureFailed(normalizedPointId, session.getTownName(), session.getInitiatorUUID());
         }
         
-        // Send Discord webhook notification for capture cancellation
         if (discordWebhook != null) {
             String webhookReason = (reason != null && !reason.isEmpty()) ? reason : Messages.get("discord.capture.cancelled.admin-reason");
             discordWebhook.sendCaptureCancelled(normalizedPointId, pointName, session.getTownName(), webhookReason);
@@ -5459,7 +5611,6 @@ extends JavaPlugin {
             previousOwner = normalizeOwner(this.defaultOwnerType, point.getControllingTown());
         }
         
-        // Stop any active capture session
         if (activeSessions.containsKey(pointId)) {
             stopCapture(pointId, "Force captured by admin");
         }
@@ -5475,13 +5626,17 @@ extends JavaPlugin {
         
         // Set owner color for map providers.
         point.setColor(getOwnerColor(forcedOwner));
+        if (this.conquestManager != null) {
+            this.conquestManager.onCaptureComplete(point, previousOwner, forcedOwner);
+        }
+        if (this.potionRewardManager != null) {
+            this.potionRewardManager.clearZone(pointId);
+        }
         refreshPointVisuals(pointId);
         invalidateHourlyRewardSchedule();
         
-        // Save changes
         saveCapturePoints();
         
-        // Broadcast the capture
         String message = Messages.get("messages.capture.complete", Map.of(
             "town", forcedOwner.getDisplayName(),
             "zone", point.getName()
@@ -5497,12 +5652,10 @@ extends JavaPlugin {
             return false;
         }
 
-        // Stop any active capture session
         if (activeSessions.containsKey(pointId)) {
             stopCapture(pointId, "Zone reset by admin");
         }
 
-        // Reset all fields to default values
         point.setCapturingOwner(null);
         point.setCaptureProgress(0.0);
         point.setControllingOwner(null);
@@ -5510,14 +5663,15 @@ extends JavaPlugin {
         point.setLastCaptureTime(0L);
         point.clearCaptureCooldownAndLocks();
         point.setColor("#8B0000"); // Reset to default dark red color
+        if (this.potionRewardManager != null) {
+            this.potionRewardManager.clearZone(pointId);
+        }
 
         refreshPointVisuals(pointId);
         invalidateHourlyRewardSchedule();
 
-        // Save changes
         saveCapturePoints();
 
-        // Broadcast reset message
         String message = Messages.get("messages.capture.reset", Map.of("zone", point.getName()));
         broadcastMessage(message);
         playCaptureSoundAtLocation("point-reset", point.getLocation());
@@ -5530,12 +5684,10 @@ extends JavaPlugin {
         for (String pointId : capturePoints.keySet()) {
             CapturePoint point = capturePoints.get(pointId);
             if (point != null) {
-                // Stop any active capture session
                 if (activeSessions.containsKey(pointId)) {
                     stopCapture(pointId, "Zone reset by admin");
                 }
 
-                // Reset all fields to default values
                 point.setCapturingOwner(null);
                 point.setCaptureProgress(0.0);
                 point.setControllingOwner(null);
@@ -5543,22 +5695,22 @@ extends JavaPlugin {
                 point.setLastCaptureTime(0L);
                 point.clearCaptureCooldownAndLocks();
                 point.setColor("#8B0000"); // Reset to default dark red color
+                if (this.potionRewardManager != null) {
+                    this.potionRewardManager.clearZone(pointId);
+                }
 
                 count++;
             }
         }
 
-        // Update Dynmap if enabled
         if (hasMapProviders()) {
             updateAllMarkers();
         }
         updateAllHolograms();
         invalidateHourlyRewardSchedule();
 
-        // Save changes
         saveCapturePoints();
 
-        // Broadcast reset message
         String message = Messages.get("messages.reset-all", Map.of("count", String.valueOf(count)));
         broadcastMessage(message);
         if (count > 0) {
@@ -5574,29 +5726,26 @@ extends JavaPlugin {
             return false;
         }
         
-        // Stop any active capture session first
         if (activeSessions.containsKey(pointId)) {
             stopCapture(pointId, "Zone deleted by admin");
         }
+        if (this.potionRewardManager != null) {
+            this.potionRewardManager.clearZone(pointId);
+        }
         
-        // Clear reinforcements if any
         if (reinforcementListener != null) {
             reinforcementListener.clearReinforcements(pointId);
         }
         
-        // Remove beacon if exists
         removeBeacon(point);
 
-        // Cancel any lingering scheduled tasks (preparation/capture)
         BukkitTask scheduled = captureTasks.remove(pointId);
         if (scheduled != null && !scheduled.isCancelled()) {
             scheduled.cancel();
         }
 
-        // Ensure boss bar is removed if present
         removeCaptureBossBar(pointId);
         
-        // Clean up boundary visualization tasks for this zone
         List<String> boundaryKeys = new ArrayList<>(this.boundaryTasks.keySet());
         for (String key : boundaryKeys) {
             if (key != null && key.endsWith("_" + pointId)) {
@@ -5604,13 +5753,11 @@ extends JavaPlugin {
             }
         }
         
-        // Remove map markers for this point across all active providers
         if (hasMapProviders()) {
             removeMarker(pointId);
         }
         removeHologram(pointId);
         
-        // Now remove the point from all maps
         capturePoints.remove(pointId);
         captureTasks.remove(pointId);
         clearHourlyRewardTracking(pointId);
@@ -5618,13 +5765,11 @@ extends JavaPlugin {
         invalidateCapturePointSpatialIndex();
         invalidateHourlyRewardSchedule();
         
-        // Backup zone config file (safe delete)
         if (zoneConfigManager != null) {
             zoneConfigManager.deleteZoneConfig(pointId, true);
             getLogger().info("Backed up config for deleted zone: " + pointId);
         }
         
-        // Save the updated capture zones
         saveCapturePoints();
         
         getLogger().info("Capture point '" + pointId + "' has been deleted and all associated activities stopped.");
@@ -5687,20 +5832,17 @@ extends JavaPlugin {
         invalidateHourlyRewardSchedule();
         saveCapturePoints();
         
-        // Generate zone config from defaults
         if (zoneConfigManager != null) {
             zoneConfigManager.generateZoneConfig(id);
             zoneConfigManager.setZoneSetting(id, "rewards.base-reward", reward);
             getLogger().info("Generated config file for zone: " + id);
         }
         
-        // Update map markers immediately for the new point
         if (hasMapProviders()) {
             createOrUpdateMarker(point);
         }
         createOrUpdateHologram(point);
         
-        // Auto-show boundaries for all online players if enabled
         if (config.getBoolean("settings.auto-show-boundaries", true)) {
             for (Player player : Bukkit.getOnlinePlayers()) {
                 startBoundaryVisualization(player, point);
@@ -6935,9 +7077,10 @@ extends JavaPlugin {
                     rewardContextPlayer
                 );
                 double resolvedEconomyReward = permissionResolution.finalAmount;
-                if (resolvedEconomyReward > 0.0 && canDepositOwnerReward(ownerType)) {
-                    boolean deposited = depositOwnerReward(controllingOwner, resolvedEconomyReward, "Reward for controlling " + point.getName());
-                    if (!deposited) {
+                EconomyRewardPayoutResult economyResult = EconomyRewardPayoutResult.none(resolveMoneyPayoutMode(point.getId()));
+                if (resolvedEconomyReward > 0.0) {
+                    economyResult = distributeEconomyReward(controllingOwner == null ? null : point, controllingOwner, resolvedEconomyReward, "Reward for controlling " + point.getName());
+                    if (!economyResult.delivered) {
                         this.getLogger().warning("Failed to deposit daily reward for owner '" + ownerName + "'.");
                     } else {
                         economyDistributed = true;
@@ -6945,7 +7088,8 @@ extends JavaPlugin {
                 }
 
                 if (economyDistributed) {
-                    this.getLogger().info("Gave " + resolvedEconomyReward + " to " + ownerName + " for controlling " + point.getName());
+                    this.getLogger().info("Gave " + economyResult.totalPaid + " to " + ownerName + " for controlling " + point.getName()
+                        + " (" + economyResult.mode + ", recipients=" + economyResult.recipients + ", failed=" + economyResult.failedRecipients + ")");
                     if (permissionResolution.applied && this.config.getBoolean("settings.debug-mode", false)) {
                         this.getLogger().info(
                             "Applied permission reward modifiers for zone '" + point.getId() + "' via "
@@ -6954,30 +7098,28 @@ extends JavaPlugin {
                         );
                     }
                     
-                    // Track reward statistics
                     if (statisticsManager != null) {
                         statisticsManager.onRewardDistributed(
                             point.getId(), 
                             point.getName(), 
                             ownerName, 
-                            resolvedEconomyReward
+                            economyResult.totalPaid
                         );
                     }
                     
-                    // Send Discord webhook notification
                     if (discordWebhook != null) {
                         discordWebhook.sendRewardsDistributed(
                             point.getId(), 
                             point.getName(), 
                             ownerName, 
-                            resolvedEconomyReward, 
+                            economyResult.totalPaid, 
                             "daily"
                         );
                     }
                     
                     String message = Messages.get("messages.reward.distributed", Map.of(
                         "town", ownerName,
-                        "reward", String.format("%.2f", resolvedEconomyReward),
+                        "reward", String.format("%.2f", economyResult.totalPaid),
                         "zone", point.getName()
                     ));
                     broadcastMessage(message);
@@ -7086,12 +7228,13 @@ extends JavaPlugin {
                     rewardContextPlayer
                 );
                 double resolvedHourlyReward = permissionResolution.finalAmount;
-                if (resolvedHourlyReward > 0.0 && canDepositOwnerReward(ownerType)) {
+                EconomyRewardPayoutResult economyResult = EconomyRewardPayoutResult.none(resolveMoneyPayoutMode(point.getId()));
+                if (resolvedHourlyReward > 0.0) {
                     if (debug) {
                         this.getLogger().info("Depositing " + resolvedHourlyReward + " to owner " + ownerName);
                     }
-                    boolean deposited = depositOwnerReward(controllingOwner, resolvedHourlyReward, "Hourly reward for controlling " + point.getName());
-                    if (!deposited) {
+                    economyResult = distributeEconomyReward(point, controllingOwner, resolvedHourlyReward, "Hourly reward for controlling " + point.getName());
+                    if (!economyResult.delivered) {
                         this.getLogger().warning("Failed to deposit hourly reward for owner '" + ownerName + "'.");
                     } else {
                         economyDistributed = true;
@@ -7100,7 +7243,8 @@ extends JavaPlugin {
 
                 if (economyDistributed) {
                     if (debug) {
-                        this.getLogger().info("Gave " + resolvedHourlyReward + " to " + ownerName + " for controlling " + point.getName() + " (hourly)");
+                        this.getLogger().info("Gave " + economyResult.totalPaid + " to " + ownerName + " for controlling " + point.getName()
+                            + " (hourly, " + economyResult.mode + ", recipients=" + economyResult.recipients + ", failed=" + economyResult.failedRecipients + ")");
                     }
                     if (permissionResolution.applied && this.config.getBoolean("settings.debug-mode", false)) {
                         this.getLogger().info(
@@ -7110,30 +7254,28 @@ extends JavaPlugin {
                         );
                     }
                     
-                    // Track reward statistics
                     if (statisticsManager != null) {
                         statisticsManager.onRewardDistributed(
                             point.getId(), 
                             point.getName(), 
                             ownerName, 
-                            resolvedHourlyReward
+                            economyResult.totalPaid
                         );
                     }
                     
-                    // Send Discord webhook notification
                     if (discordWebhook != null) {
                         discordWebhook.sendRewardsDistributed(
                             point.getId(), 
                             point.getName(), 
                             ownerName, 
-                            resolvedHourlyReward, 
+                            economyResult.totalPaid, 
                             "hourly"
                         );
                     }
                     
                     String message = Messages.get("messages.reward.hourly_distributed", Map.of(
                         "town", ownerName,
-                        "reward", String.format("%.2f", resolvedHourlyReward),
+                        "reward", String.format("%.2f", economyResult.totalPaid),
                         "zone", point.getName()
                     ));
                     broadcastMessage(message);
@@ -7439,11 +7581,22 @@ extends JavaPlugin {
         return this.kothManager;
     }
 
+    public ConquestManager getConquestManager() {
+        return this.conquestManager;
+    }
+
     public Set<String> getActiveKothZoneIds() {
         if (this.kothManager == null) {
             return Collections.emptySet();
         }
         return this.kothManager.getActiveZoneIds();
+    }
+
+    public String getConquestStatusLine(String pointId) {
+        if (this.conquestManager == null) {
+            return "";
+        }
+        return this.conquestManager.getStatusLineForZone(pointId);
     }
 
     public boolean isKothZoneActive(String pointId) {
@@ -7569,6 +7722,9 @@ extends JavaPlugin {
         String normalizedPointId = pointId.trim();
         this.stopCapture(normalizedPointId);
         this.capturePoints.remove(normalizedPointId);
+        if (this.potionRewardManager != null) {
+            this.potionRewardManager.clearZone(normalizedPointId);
+        }
         clearHourlyRewardTracking(normalizedPointId);
         this.removeHologram(normalizedPointId);
         invalidateCapturePointSpatialIndex();
@@ -7685,7 +7841,6 @@ extends JavaPlugin {
         playCaptureSoundAtLocation("capture-progress", point.getLocation());
     }
     
-    // Sound System Methods
     public void playCaptureSound(String soundEvent) {
         if (!config.getBoolean("sounds.enabled", true)) {
             return;
@@ -7718,7 +7873,6 @@ extends JavaPlugin {
         float volume = (float) config.getDouble("sounds." + soundEvent + ".volume", 1.0);
         float pitch = (float) config.getDouble("sounds." + soundEvent + ".pitch", 1.0);
         
-        // Only play for players who haven't disabled notifications
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (player.getWorld() == location.getWorld() && 
                 player.getLocation().distance(location) < 100 &&
@@ -7779,6 +7933,10 @@ extends JavaPlugin {
             if (CaptureZones.this.config.getBoolean("settings.auto-show-boundaries", true)) {
                 CaptureZones.this.autoShowBoundariesForPlayer(player);
             }
+
+            if (CaptureZones.this.potionRewardManager != null) {
+                CaptureZones.this.potionRewardManager.onPlayerJoin(player);
+            }
             
             // Show update notification to admins
             if (CaptureZones.this.getConfig().getBoolean("settings.check-for-updates", true) && 
@@ -7796,7 +7954,6 @@ extends JavaPlugin {
         }
     }
 
-    // Test method: Start a capture with custom duration for testing
     public boolean startTestCapture(Player player, String pointId, int preparationSeconds, int captureSeconds) {
         CapturePoint point = capturePoints.get(pointId);
         if (point == null) {
@@ -7813,15 +7970,12 @@ extends JavaPlugin {
             return false;
         }
 
-        // Create beacon at capture zone
         createBeacon(point.getLocation());
 
-        // Create capture session with custom duration
         CaptureSession session = new CaptureSession(point, owner, player, preparationSeconds / 60, captureSeconds / 60);
         session.getPlayers().add(player);
         activeSessions.put(pointId, session);
 
-        // Create boss bar
         BossBar bossBar = Bukkit.createBossBar(
             colorize("&e[TEST] Capturing: " + point.getName()),
             BarColor.BLUE,
@@ -7829,7 +7983,6 @@ extends JavaPlugin {
         );
         captureBossBars.put(pointId, bossBar);
         
-        // Show boss bar to all players for testing
         int visibilityExtraChunks = resolveBossbarVisibilityExtraChunks();
         for (Player online : Bukkit.getOnlinePlayers()) {
             if (shouldShowBossBarToPlayer(point, online, visibilityExtraChunks)) {
@@ -7839,7 +7992,6 @@ extends JavaPlugin {
             }
         }
 
-        // Short preparation phase
         BukkitTask prepTask = Bukkit.getScheduler().runTaskTimer(this, () -> {
             if (!session.isActive()) {
                 return;
@@ -7944,30 +8096,18 @@ extends JavaPlugin {
         }
     }
     
-    /**
-     * Get the statistics manager
-     */
     public StatisticsManager getStatisticsManager() {
         return statisticsManager;
     }
     
-    /**
-     * Get the statistics GUI
-     */
     public StatisticsGUI getStatisticsGUI() {
         return statisticsGUI;
     }
     
-    /**
-     * Get the zone configuration manager
-     */
     public ZoneConfigManager getZoneConfigManager() {
         return zoneConfigManager;
     }
     
-    /**
-     * Get the shop manager
-     */
     public ShopManager getShopManager() {
         return shopManager;
     }
@@ -7991,9 +8131,6 @@ extends JavaPlugin {
         return shopEconomyAdapter;
     }
 
-    /**
-     * Get the shop manager, creating it on demand when the shop system is enabled.
-     */
     public ShopManager getOrCreateShopManagerIfEnabled() {
         if (!getConfig().getBoolean("shops.enabled", false)) {
             shutdownShopSystem();
@@ -8047,9 +8184,6 @@ extends JavaPlugin {
         return null;
     }
     
-    /**
-     * Get the shop listener
-     */
     public ShopListener getShopListener() {
         return shopListener;
     }

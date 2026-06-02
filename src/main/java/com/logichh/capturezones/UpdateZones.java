@@ -23,8 +23,11 @@ public class UpdateZones {
     private MarkerSet markerSet;
     private MarkerAPI markerAPI;
     private AreaStyle areaStyle;
+
     private Map<String, AreaMarker> areaMarkers = new HashMap<String, AreaMarker>();
+
     private Map<String, Marker> centerMarkers = new HashMap<String, Marker>();
+
     private Set<String> warnedInvalidCenterIcons = new LinkedHashSet<String>();
     private Plugin dynmapTowny;
     private Plugin papiPlugin;

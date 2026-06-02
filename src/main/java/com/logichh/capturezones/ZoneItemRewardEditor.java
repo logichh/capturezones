@@ -15,10 +15,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Simple GUI editor for per-zone item rewards.
- * Admin places desired reward items directly in the inventory and closes to save.
- */
 public class ZoneItemRewardEditor implements Listener {
     private static final int EDITOR_SIZE = 54;
 
@@ -63,6 +59,7 @@ public class ZoneItemRewardEditor implements Listener {
     }
 
     @EventHandler
+
     public void onInventoryClose(InventoryCloseEvent event) {
         if (!(event.getPlayer() instanceof Player)) {
             return;

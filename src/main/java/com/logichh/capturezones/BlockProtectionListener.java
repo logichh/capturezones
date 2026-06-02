@@ -12,6 +12,7 @@ import org.bukkit.event.block.BlockPlaceEvent;
 public class BlockProtectionListener
 implements Listener {
     @EventHandler
+
     public void onBlockBreak(BlockBreakEvent event) {
         if (event == null || event.getPlayer() == null || event.getBlock() == null) {
             return;
@@ -36,6 +37,7 @@ implements Listener {
     }
 
     @EventHandler
+
     public void onBlockPlace(BlockPlaceEvent event) {
         if (event == null || event.getPlayer() == null || event.getBlock() == null) {
             return;

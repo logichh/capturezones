@@ -9,9 +9,6 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.*;
 
-/**
- * Player shop browsing interface
- */
 public class ShopGUI {
     
     private static final int[] QUANTITY_OPTIONS = {1, 2, 3, 5, 10, 16, 32, 64};
@@ -31,7 +28,9 @@ public class ShopGUI {
     private boolean paginated = false;
     
     // Maps display slots to actual shop items
+
     private Map<Integer, ShopItemConfig> slotToItemMap = new HashMap<>();
+
     private Map<Integer, Integer> slotToQuantityMap = new HashMap<>();
     
     public enum GUIState {
@@ -46,9 +45,6 @@ public class ShopGUI {
         this.player = player;
     }
     
-    /**
-     * Open the main shop menu - always 54-slot with pagination if needed
-     */
     public void open() {
         List<ShopItemConfig> allItems = new ArrayList<>(shop.getItems().values());
         ShopData.LayoutMode layoutMode = shop.getLayoutMode();
@@ -72,9 +68,6 @@ public class ShopGUI {
         }
     }
     
-    /**
-     * Single page shop (all items in one 54-slot inventory, no navigation)
-     */
     private void openSinglePage() {
         slotToItemMap.clear();
         slotToQuantityMap.clear();
@@ -100,11 +93,6 @@ public class ShopGUI {
         player.openInventory(inv);
     }
     
-
-    
-    /**
-     * Open a paginated shop page (only used when > 45 items)
-     */
     public void openPage(int page) {
         slotToItemMap.clear();
         slotToQuantityMap.clear();
@@ -163,9 +151,6 @@ public class ShopGUI {
         player.openInventory(inv);
     }
     
-    /**
-     * Open quantity selector for an item
-     */
     public void openQuantitySelector(ShopItemConfig item, boolean buyMode) {
         slotToItemMap.clear();
         slotToQuantityMap.clear();
@@ -184,7 +169,6 @@ public class ShopGUI {
             int quantity = QUANTITY_OPTIONS[i];
             slotToQuantityMap.put(slots[i], quantity);
             
-            // Check if this quantity is available
             boolean available = true;
             if (buyMode && shop.getStockSystem() != ShopData.StockSystem.INFINITE && !item.hasStock(quantity)) {
                 available = false;
@@ -267,9 +251,6 @@ public class ShopGUI {
         player.openInventory(inv);
     }
     
-    /**
-     * Create shop item display with pricing info
-     */
     private ItemStack createShopItemDisplay(ShopItemConfig item) {
         ItemStack display = item.getDisplayItem() != null ? 
             item.getDisplayItem().clone() : 
@@ -315,17 +296,29 @@ public class ShopGUI {
     }
     
     // Getters for listener
+
     public GUIState getCurrentState() { return currentState; }
+
     public ShopItemConfig getItemAtSlot(int slot) { return slotToItemMap.get(slot); }
+
     public ShopItemConfig getSelectedItem() { return selectedItem; }
+
     public boolean isBuyMode() { return buyMode; }
+
     public int getCurrentPage() { return currentPage; }
+
     public String getCurrentCategory() { return currentCategory; }
+
     public void setCurrentCategory(String category) { this.currentCategory = category; }
+
     public String getZoneId() { return zoneId; }
+
     public ShopData getShop() { return shop; }
+
     public Inventory getCurrentInventory() { return currentInventory; }
+
     public boolean isPaginated() { return paginated; }
+
     public Integer getQuantityForSlot(int slot) { return slotToQuantityMap.get(slot); }
 
     private boolean isUnlimitedStock(ShopItemConfig item) {

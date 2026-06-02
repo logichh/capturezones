@@ -49,6 +49,14 @@ capture:
 rewards:
   # Base money reward amount (set to 0 to disable money payouts)
   base-reward: 1000.0
+  money:
+    # OWNER_ACCOUNT = deposit to controlling owner account (backward compatible)
+    # SPLIT_ONLINE = split one reward across online owner members
+    # EACH_ONLINE = give each online owner member the full reward
+    # EACH_RESIDENT = give each Towny resident account the full reward, including offline residents
+    payout-mode: "OWNER_ACCOUNT"
+    max-recipients: 250
+    batch-size: 25
   # Reward schedule type: "hourly" or "daily"
   reward-type: "hourly"
   # Hourly payout mode: "STATIC" uses base-reward, "DYNAMIC" uses hourly-dynamic
@@ -102,6 +110,12 @@ rewards:
     grants:
       - { permission: "capturezones.rewardkit.weekly", duration: "7d" }
       - { permission: "capturezones.rewardkit.permanent", permanent: true }
+  potion-effects:
+    # Grant short refreshed potion effects to the player who initiated the successful capture.
+    enabled: false
+    duration-ticks: 260
+    effects:
+      - { type: "SPEED", amplifier: 0, particles: true, icon: true, ambient: true }
 
 # Reinforcement configuration
 reinforcements:
@@ -465,3 +479,14 @@ bluemap:
     capturing: "#FFA500"
   # Show extra details in markers
   show-details: true
+
+# Pl3xMap integration (per-zone)
+pl3xmap:
+  enabled: true
+  line-width: 2
+  line-opacity: 0.8
+  fill-opacity: 0.3
+  colors:
+    unclaimed: "#808080"
+    controlled: "#8B0000"
+    capturing: "#FFA500"

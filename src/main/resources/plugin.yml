@@ -1,8 +1,8 @@
 name: CaptureZones
-version: '1.1.2'
+version: '1.1.4'
 main: com.logichh.capturezones.CaptureZones
-api-version: '1.20'
-softdepend: [Towny, Vault, Dynmap, WorldGuard, PlaceholderAPI, Dynmap-Towny, MythicMobs, BlueMap]
+api-version: '1.21'
+softdepend: [Towny, Vault, Dynmap, WorldGuard, PlaceholderAPI, Dynmap-Towny, MythicMobs, BlueMap, Pl3xMap]
 authors: [LogicHH]
 description: A plugin that adds capturable zones with optional map integrations
 
@@ -41,6 +41,7 @@ permissions:
       capturezones.admin.shop: true
       capturezones.admin.shop.restock: true
       capturezones.admin.koth: true
+      capturezones.admin.conquest: true
       capturezones.admin.update-notify: true
 
   capturezones.admin.create:
@@ -121,6 +122,10 @@ permissions:
 
   capturezones.admin.koth:
     description: Allows controlling KOTH events
+    default: op
+
+  capturezones.admin.conquest:
+    description: Allows controlling conquest events
     default: op
 
 

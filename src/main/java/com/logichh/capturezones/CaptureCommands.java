@@ -43,6 +43,7 @@ public class CaptureCommands implements CommandExecutor {
     }
 
     @Override
+
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
         if (args.length == 0) {
             sendHelp(sender);
@@ -263,6 +264,27 @@ public class CaptureCommands implements CommandExecutor {
                 plugin.reloadLang();
                 sender.sendMessage(Messages.get("messages.reloadlang-success"));
                 return true;
+            case "webhook":
+                if (shiftedArgs.length < 2) {
+                    sender.sendMessage(Messages.get("errors.usage-webhook"));
+                    return true;
+                }
+                String webhookSub = shiftedArgs[1].toLowerCase();
+                if ("test".equals(webhookSub)) {
+                    if (plugin.getDiscordWebhook() == null) {
+                        sender.sendMessage(Messages.get("admin.webhook.test.failure"));
+                        return true;
+                    }
+                    boolean ok = plugin.getDiscordWebhook().testWebhook();
+                    if (ok) {
+                        sender.sendMessage(Messages.get("admin.webhook.test.success"));
+                    } else {
+                        sender.sendMessage(Messages.get("admin.webhook.test.failure"));
+                    }
+                    return true;
+                }
+                sender.sendMessage(Messages.get("errors.usage-webhook"));
+                return true;
             case "repair":
                 if (!PermissionNode.has(sender, "admin.migrate")) {
                     sender.sendMessage(Messages.get("errors.no-permission"));
@@ -327,6 +349,13 @@ public class CaptureCommands implements CommandExecutor {
                 }
                 handleAdminKothCommand(sender, shiftedArgs);
                 return true;
+            case "conquest":
+                if (!PermissionNode.has(sender, "admin.conquest")) {
+                    sender.sendMessage(Messages.get("errors.no-permission"));
+                    return true;
+                }
+                handleAdminConquestCommand(sender, shiftedArgs);
+                return true;
             default:
                 sendAdminHelp(sender);
                 return true;
@@ -353,8 +382,6 @@ public class CaptureCommands implements CommandExecutor {
 
         if (plugin.deleteCapturePoint(pointId)) {
             sender.sendMessage(Messages.get("admin.point-deleted"));
-            
-            // Send Discord webhook notification for zone deletion
             if (plugin.getDiscordWebhook() != null) {
                 String deletedBy = (sender instanceof Player) ? ((Player) sender).getName() : "Console";
                 plugin.getDiscordWebhook().sendZoneDeleted(pointId, pointId, deletedBy);
@@ -445,6 +472,8 @@ public class CaptureCommands implements CommandExecutor {
         sender.sendMessage(Messages.get("help.admin.repair"));
         sender.sendMessage(Messages.get("help.admin.migrate"));
         sender.sendMessage(Messages.get("help.admin.koth"));
+        sender.sendMessage(Messages.get("help.admin.conquest"));
+        sender.sendMessage(Messages.get("help.admin.webhook"));
     }
 
     private void handleAdminKothCommand(CommandSender sender, String[] args) {
@@ -709,6 +738,142 @@ public class CaptureCommands implements CommandExecutor {
                 "id", zoneId.trim(),
                 "zone", zoneName,
                 "exists", exists ? "yes" : "no"
+            )));
+        }
+    }
+
+    private void handleAdminConquestCommand(CommandSender sender, String[] args) {
+        ConquestManager conquestManager = plugin.getConquestManager();
+        if (conquestManager == null || !conquestManager.isEnabled()) {
+            sender.sendMessage(Messages.get("errors.conquest-disabled"));
+            return;
+        }
+        if (args.length < 2) {
+            sender.sendMessage(Messages.get("errors.usage-conquest"));
+            return;
+        }
+
+        String subcommand = args[1].toLowerCase();
+        switch (subcommand) {
+            case "start": {
+                String profile = args.length >= 3 ? args[2] : plugin.getConfig().getString("conquest.default-profile", "default");
+                if (conquestManager.startMatch(profile)) {
+                    sender.sendMessage(Messages.get("admin.conquest.started", Map.of("profile", profile)));
+                } else {
+                    sender.sendMessage(Messages.get("errors.conquest-start-failed"));
+                }
+                return;
+            }
+            case "stop": {
+                if (conquestManager.stopActiveMatch(Messages.get("messages.conquest.reason.manual"), true)) {
+                    sender.sendMessage(Messages.get("admin.conquest.stopped"));
+                } else {
+                    sender.sendMessage(Messages.get("errors.conquest-stop-failed"));
+                }
+                return;
+            }
+            case "status":
+                handleAdminConquestStatus(sender, conquestManager);
+                return;
+            case "assign":
+                handleAdminConquestAssign(sender, args, true);
+                return;
+            case "unassign":
+            case "remove":
+                handleAdminConquestAssign(sender, args, false);
+                return;
+            case "zones":
+            case "list":
+                handleAdminConquestZones(sender, args);
+                return;
+            default:
+                sender.sendMessage(Messages.get("errors.usage-conquest"));
+        }
+    }
+
+    private void handleAdminConquestStatus(CommandSender sender, ConquestManager conquestManager) {
+        ConquestManager.Snapshot snapshot = conquestManager.snapshot();
+        sender.sendMessage(Messages.get("admin.conquest.status.header"));
+        sender.sendMessage(Messages.get("admin.conquest.status.active", Map.of(
+            "active", String.valueOf(conquestManager.isActive()),
+            "profile", snapshot.profile == null || snapshot.profile.isEmpty() ? "none" : snapshot.profile
+        )));
+        if (!conquestManager.isActive()) {
+            return;
+        }
+        for (Map.Entry<String, Integer> entry : snapshot.ticketsByOwnerKey.entrySet()) {
+            CaptureOwner owner = snapshot.ownersByKey.get(entry.getKey());
+            sender.sendMessage(Messages.get("admin.conquest.status.entry", Map.of(
+                "team", owner != null ? owner.getDisplayName() : entry.getKey(),
+                "tickets", String.valueOf(Math.max(0, entry.getValue()))
+            )));
+        }
+        sender.sendMessage(Messages.get("admin.conquest.status.zones", Map.of(
+            "zones", String.join(", ", snapshot.zoneIds)
+        )));
+    }
+
+    private void handleAdminConquestAssign(CommandSender sender, String[] args, boolean assign) {
+        String profile = plugin.getConfig().getString("conquest.default-profile", "default");
+        String requestedZone;
+        if (args.length >= 4) {
+            profile = args[2];
+            requestedZone = args[3];
+        } else if (args.length >= 3) {
+            requestedZone = args[2];
+        } else {
+            sender.sendMessage(Messages.get(assign ? "errors.usage-conquest-assign" : "errors.usage-conquest-unassign"));
+            return;
+        }
+
+        CapturePoint point = resolveCapturePointById(requestedZone);
+        if (assign && point == null) {
+            sender.sendMessage(Messages.get("errors.conquest-zone-not-found"));
+            return;
+        }
+        String zoneId = point != null ? point.getId() : requestedZone;
+        ConquestManager conquestManager = plugin.getConquestManager();
+        List<String> configured = new ArrayList<>(conquestManager.getConfiguredZones(profile));
+        boolean changed;
+        if (assign) {
+            boolean exists = configured.stream().anyMatch(id -> id.equalsIgnoreCase(zoneId));
+            if (exists) {
+                sender.sendMessage(Messages.get("admin.conquest.assign.already", Map.of("zone", zoneId)));
+                return;
+            }
+            configured.add(zoneId);
+            changed = true;
+        } else {
+            int before = configured.size();
+            configured.removeIf(id -> id != null && id.equalsIgnoreCase(zoneId));
+            changed = configured.size() != before;
+            if (!changed) {
+                sender.sendMessage(Messages.get("admin.conquest.unassign.not-found", Map.of("zone", zoneId)));
+                return;
+            }
+        }
+        conquestManager.setConfiguredZones(profile, configured);
+        sender.sendMessage(Messages.get(assign ? "admin.conquest.assigned" : "admin.conquest.unassigned", Map.of(
+            "profile", profile,
+            "zone", zoneId,
+            "count", String.valueOf(configured.size())
+        )));
+    }
+
+    private void handleAdminConquestZones(CommandSender sender, String[] args) {
+        String profile = args.length >= 3 ? args[2] : plugin.getConfig().getString("conquest.default-profile", "default");
+        List<String> configured = plugin.getConquestManager().getConfiguredZones(profile);
+        sender.sendMessage(Messages.get("admin.conquest.zones.header", Map.of("profile", profile)));
+        if (configured.isEmpty()) {
+            sender.sendMessage(Messages.get("admin.conquest.zones.none"));
+            return;
+        }
+        for (String zoneId : configured) {
+            CapturePoint point = resolveCapturePointById(zoneId);
+            sender.sendMessage(Messages.get("admin.conquest.zones.entry", Map.of(
+                "id", zoneId,
+                "zone", point != null ? point.getName() : zoneId,
+                "exists", point != null ? "yes" : "no"
             )));
         }
     }
@@ -1034,7 +1199,7 @@ public class CaptureCommands implements CommandExecutor {
                     for (int z = minZ; z <= maxZ; ++z) {
                         if (x != minX && x != maxX && z != minZ && z != maxZ) continue;
                         Location particleLoc = new Location(player.getWorld(), (double)x + 0.5, (double)(y + 1), (double)z + 0.5);
-                        player.getWorld().spawnParticle(Particle.REDSTONE, particleLoc, 1, (Object)new Particle.DustOptions(Color.RED, 1.0f));
+                        player.getWorld().spawnParticle(Particle.DUST, particleLoc, 1, (Object)new Particle.DustOptions(Color.RED, 1.0f));
                     }
                 }
                 ++this.count;
@@ -1092,8 +1257,6 @@ public class CaptureCommands implements CommandExecutor {
                 return;
             }
             player.sendMessage(Messages.get("messages.create.success"));
-            
-            // Send Discord webhook notification for zone creation
             if (plugin.getDiscordWebhook() != null) {
                 plugin.getDiscordWebhook().sendZoneCreated(id, id, player.getName(), type, chunkRadius, reward);
             }
@@ -1260,16 +1423,13 @@ public class CaptureCommands implements CommandExecutor {
             return;
         }
 
-        // Check if already showing for this player
         String key = player.getUniqueId() + "_" + pointId;
         if (this.plugin.boundaryTasks.containsKey(key)) {
-            // Toggle off
             this.plugin.stopBoundaryVisualization(key);
             player.sendMessage(this.plugin.colorize("&7Zone boundary display hidden for " + point.getName()));
             return;
         }
 
-        // Toggle on
         player.sendMessage(this.plugin.colorize("&eShowing boundaries for " + point.getName() + " (circular zone)"));
         player.sendMessage(this.plugin.colorize("&7Type /capturezones showzone " + pointId + " again to hide"));
         boolean started = this.plugin.startBoundaryVisualization(player, point);
@@ -1289,11 +1449,9 @@ public class CaptureCommands implements CommandExecutor {
         for (CapturePoint point : this.plugin.getCapturePoints().values()) {
             String key = player.getUniqueId() + "_" + point.getId();
             if (this.plugin.boundaryTasks.containsKey(key)) {
-                // Toggle off
                 this.plugin.stopBoundaryVisualization(key);
                 hiddenCount++;
             } else {
-                // Show zone
                 showZoneBoundaries(player, point.getId());
                 shownCount++;
             }
@@ -1314,7 +1472,6 @@ public class CaptureCommands implements CommandExecutor {
         player.sendMessage(plugin.colorize("&6&l=== Running Basic Tests ==="));
         player.sendMessage(plugin.colorize("&7Creating test zones..."));
         
-        // Test 1: Create test zones
         Location loc1 = player.getLocation().clone().add(20, 0, 0);
         Location loc2 = player.getLocation().clone().add(-20, 0, 0);
         Location loc3 = player.getLocation().clone().add(0, 0, 20);
@@ -1334,7 +1491,6 @@ public class CaptureCommands implements CommandExecutor {
         final int[] testsPassed = {0};
         final int[] testsTotal = {0};
         
-        // Test 1-3: Basic Zone Creation
         player.sendMessage(plugin.colorize("&7[Test 1-3] Creating multiple test zones..."));
         Location loc1 = player.getLocation().clone().add(50, 0, 50);
         Location loc2 = player.getLocation().clone().add(-50, 0, 50);
@@ -1354,7 +1510,6 @@ public class CaptureCommands implements CommandExecutor {
             }
         }
         
-        // Test 4: Normal Capture
         player.sendMessage(plugin.colorize("&7[Test 4] Testing normal capture (5 seconds)..."));
         testsTotal[0]++;
         Bukkit.getScheduler().runTaskLater((Plugin)plugin, () -> {
@@ -1363,10 +1518,8 @@ public class CaptureCommands implements CommandExecutor {
                 player.sendMessage(plugin.colorize("&a[PASS] Normal capture started"));
                 testsPassed[0]++;
                 
-                // Test 5: Attempt capture while already being captured
                 testsTotal[0]++;
                 Bukkit.getScheduler().runTaskLater((Plugin)plugin, () -> {
-                    // Try to start another capture (should fail or be prevented)
                     boolean duplicateStarted = plugin.startTestCapture(player, "test_zone_1", 1, 5);
                     if (!duplicateStarted || (plugin.getActiveSessions().size() == 1)) {
                         player.sendMessage(plugin.colorize("&a[PASS] Duplicate capture prevented"));
@@ -1375,9 +1528,7 @@ public class CaptureCommands implements CommandExecutor {
                         player.sendMessage(plugin.colorize("&c[FAIL] Duplicate capture allowed"));
                     }
                     
-                    // Wait for capture 1 to complete
                     Bukkit.getScheduler().runTaskLater((Plugin)plugin, () -> {
-                        // Test 6: Verify capture completion
                         testsTotal[0]++;
                         CapturePoint point = plugin.getCapturePoint("test_zone_1");
                         if (point != null && !point.getControllingTown().isEmpty()) {
@@ -1387,7 +1538,6 @@ public class CaptureCommands implements CommandExecutor {
                             player.sendMessage(plugin.colorize("&c[FAIL] Capture did not complete"));
                         }
                         
-                        // Test 7: Attempt to capture already-captured zone
                         testsTotal[0]++;
                         boolean alreadyCapturedStarted = plugin.startTestCapture(player, "test_zone_1", 1, 5);
                         if (!alreadyCapturedStarted || plugin.getActiveSession("test_zone_1") == null) {
@@ -1397,7 +1547,6 @@ public class CaptureCommands implements CommandExecutor {
                             player.sendMessage(plugin.colorize("&c[FAIL] Allowed capture of controlled zone"));
                         }
                         
-                        // Test 8: Admin reset zone
                         testsTotal[0]++;
                         if (plugin.resetPoint("test_zone_1")) {
                             player.sendMessage(plugin.colorize("&a[PASS] Zone reset successful"));
@@ -1406,7 +1555,6 @@ public class CaptureCommands implements CommandExecutor {
                             player.sendMessage(plugin.colorize("&c[FAIL] Zone reset failed"));
                         }
                         
-                        // Test 9: Capture after reset
                         testsTotal[0]++;
                         player.sendMessage(plugin.colorize("&7[Test 9] Capturing reset zone..."));
                         Bukkit.getScheduler().runTaskLater((Plugin)plugin, () -> {
@@ -1418,9 +1566,7 @@ public class CaptureCommands implements CommandExecutor {
                                 player.sendMessage(plugin.colorize("&c[FAIL] Cannot capture after reset"));
                             }
                             
-                            // Wait for second capture to complete
                             Bukkit.getScheduler().runTaskLater((Plugin)plugin, () -> {
-                                // Test 10: Admin stop capture
                                 testsTotal[0]++;
                                 if (plugin.stopCapture("test_zone_1", "Test cancellation")) {
                                     player.sendMessage(plugin.colorize("&a[PASS] Admin stop capture works"));
@@ -1429,7 +1575,6 @@ public class CaptureCommands implements CommandExecutor {
                                     player.sendMessage(plugin.colorize("&c[FAIL] Admin stop failed"));
                                 }
                                 
-                                // Test 11: Force capture
                                 testsTotal[0]++;
                                 player.sendMessage(plugin.colorize("&7[Test 11] Testing force capture..."));
                                 plugin.resetPoint("test_zone_1");
@@ -1455,7 +1600,6 @@ public class CaptureCommands implements CommandExecutor {
                                         testsPassed[0]++;
                                     }
                                     
-                                    // Test 12: Multiple concurrent captures
                                     testsTotal[0]++;
                                     player.sendMessage(plugin.colorize("&7[Test 12] Testing multiple concurrent captures..."));
                                     plugin.resetPoint("test_zone_2");
@@ -1469,9 +1613,7 @@ public class CaptureCommands implements CommandExecutor {
                                             player.sendMessage(plugin.colorize("&c[FAIL] Multiple captures failed"));
                                         }
                                         
-                                        // Wait for concurrent captures
                                         Bukkit.getScheduler().runTaskLater((Plugin)plugin, () -> {
-                                            // Test 13-14: Boundary cleanup on deletion
                                             testsTotal[0]++;
                                             if (plugin.deleteCapturePoint("test_zone_1")) {
                                                 player.sendMessage(plugin.colorize("&a[PASS] Zone 1 deleted with boundary cleanup"));
@@ -1488,7 +1630,6 @@ public class CaptureCommands implements CommandExecutor {
                                                 player.sendMessage(plugin.colorize("&c[FAIL] Zone cleanup failed"));
                                             }
                                             
-                                            // Final results
                                             player.sendMessage(plugin.colorize("&6&l========== FINAL TEST RESULTS =========="));
                                             player.sendMessage(plugin.colorize("&eTests Passed: &a" + testsPassed[0] + "&7/&f" + testsTotal[0]));
                                             
@@ -1510,30 +1651,22 @@ public class CaptureCommands implements CommandExecutor {
         }, 20L);
     }
     
-    /**
-     * Handle /cap stats command (open GUI)
-     */
     private void handleStatsCommand(Player player) {
         if (plugin.getStatisticsGUI() == null) {
             player.sendMessage(Messages.get("errors.stats-disabled"));
             return;
         }
         
-        // Check cooldown
         if (!plugin.getStatisticsGUI().canUseStatsCommand(player)) {
             long remaining = plugin.getStatisticsGUI().getCooldownSeconds(player);
             player.sendMessage(Messages.get("errors.stats-cooldown", Map.of("seconds", String.valueOf(remaining))));
             return;
         }
         
-        // Set cooldown and open menu
         plugin.getStatisticsGUI().setCooldown(player);
         plugin.getStatisticsGUI().openMainMenu(player);
     }
-    
-    /**
-     * Handle admin stats commands
-     */
+
     private void handleAdminStatsCommand(CommandSender sender, String[] args) {
         if (args.length < 2) {
             sender.sendMessage(Messages.get("errors.usage-stats-admin"));
@@ -1565,9 +1698,6 @@ public class CaptureCommands implements CommandExecutor {
         }
     }
     
-    /**
-     * Remove player statistics
-     */
     private void handleStatsRemove(CommandSender sender, String playerName) {
         if (plugin.getStatisticsManager() == null) {
             sender.sendMessage(Messages.get("errors.stats-disabled"));
@@ -1584,9 +1714,6 @@ public class CaptureCommands implements CommandExecutor {
         sender.sendMessage(Messages.get("messages.stats-removed", Map.of("player", playerName)));
     }
     
-    /**
-     * Reset all statistics
-     */
     private void handleStatsReset(CommandSender sender) {
         if (plugin.getStatisticsManager() == null) {
             sender.sendMessage(Messages.get("errors.stats-disabled"));
@@ -1606,10 +1733,10 @@ public class CaptureCommands implements CommandExecutor {
      *   reload - Reload the zone config from disk
      *   itemrewards - Open GUI editor for custom item rewards
      */
+
     private void handleZoneConfigCommand(CommandSender sender, String[] args) {
         String zoneId = args[1];
         
-        // Verify zone exists
         CapturePoint point = plugin.getCapturePoint(zoneId);
         if (point == null) {
             sender.sendMessage(Messages.get("errors.zone-not-found", Map.of("id", zoneId)));
@@ -1671,12 +1798,8 @@ public class CaptureCommands implements CommandExecutor {
         }
     }
     
-    /**
-     * Set a zone-specific config value
-     */
     private void handleZoneConfigSet(CommandSender sender, String zoneId, String path, String value) {
         try {
-            // Try to parse value as different types
             Object parsedValue;
             if (value.equalsIgnoreCase("true") || value.equalsIgnoreCase("false")) {
                 parsedValue = Boolean.parseBoolean(value);
@@ -1688,7 +1811,6 @@ public class CaptureCommands implements CommandExecutor {
                 parsedValue = value;
             }
             
-            // Set the value in zone config
             boolean updated = plugin.getZoneConfigManager().setZoneSetting(zoneId, path, parsedValue);
             if (!updated) {
                 sender.sendMessage(Messages.get("errors.zoneconfig-set-invalid"));
@@ -1711,13 +1833,9 @@ public class CaptureCommands implements CommandExecutor {
         }
     }
     
-    /**
-     * Reset zone config to defaults
-     */
     private void handleZoneConfigReset(CommandSender sender, String zoneId, String path) {
         try {
             if (path == null) {
-                // Regenerate entire config from the zone template
                 plugin.getZoneConfigManager().generateZoneConfig(zoneId);
                 plugin.invalidateCapturePointSpatialIndex();
                 sender.sendMessage(Messages.get("messages.zoneconfig-reset-all-success", Map.of(
@@ -1725,7 +1843,6 @@ public class CaptureCommands implements CommandExecutor {
                 )));
                 plugin.getLogger().info(String.format("Zone config fully reset by %s: %s", sender.getName(), zoneId));
             } else {
-                // Reset specific path to default
                 Object defaultValue = plugin.getZoneConfigManager().getZoneDefault(path);
                 plugin.getZoneConfigManager().setZoneSetting(zoneId, path, defaultValue);
                 plugin.getZoneConfigManager().saveZoneConfig(zoneId);
@@ -1744,9 +1861,6 @@ public class CaptureCommands implements CommandExecutor {
         }
     }
     
-    /**
-     * Reload zone config from disk
-     */
     private void handleZoneConfigReload(CommandSender sender, String zoneId) {
         try {
             plugin.getZoneConfigManager().loadZoneConfig(zoneId);
@@ -1778,9 +1892,6 @@ public class CaptureCommands implements CommandExecutor {
         zoneItemRewardEditor.openEditor(player, zoneId);
     }
     
-    /**
-     * Handle shop commands
-     */
     private void handleShopCommand(Player player, String[] args) {
         ShopManager shopManager = plugin.getOrCreateShopManagerIfEnabled();
         if (shopManager == null) {
@@ -1788,7 +1899,6 @@ public class CaptureCommands implements CommandExecutor {
             return;
         }
         
-        // /cap shop - Open nearest zone shop
         if (args.length == 1) {
             CapturePoint nearestZone = findNearestZone(player);
             if (nearestZone == null) {
@@ -1807,7 +1917,6 @@ public class CaptureCommands implements CommandExecutor {
         
         switch (subCommand) {
             case "edit":
-                // /cap shop edit <zone_id> - Open editor
                 if (!PermissionNode.has(player, "admin.shop")) {
                     player.sendMessage(Messages.get("errors.no-permission"));
                     return;
@@ -1828,7 +1937,6 @@ public class CaptureCommands implements CommandExecutor {
                 break;
                 
             case "reload":
-                // /cap shop reload <zone_id> - Reload shop config
                 if (!PermissionNode.has(player, "admin.shop")) {
                     player.sendMessage(Messages.get("errors.no-permission"));
                     return;
@@ -1843,7 +1951,6 @@ public class CaptureCommands implements CommandExecutor {
                 break;
                 
             case "restock":
-                // /cap shop restock <zone_id> - Manual restock
                 if (!PermissionNode.has(player, "admin.shop.restock")) {
                     player.sendMessage(Messages.get("errors.no-permission"));
                     return;
@@ -1857,7 +1964,6 @@ public class CaptureCommands implements CommandExecutor {
                 break;
                 
             case "enable":
-                // /cap shop enable <zone_id> - Enable shop
                 if (!PermissionNode.has(player, "admin.shop")) {
                     player.sendMessage(Messages.get("errors.no-permission"));
                     return;
@@ -1873,7 +1979,6 @@ public class CaptureCommands implements CommandExecutor {
                 break;
                 
             case "disable":
-                // /cap shop disable <zone_id> - Disable shop
                 if (!PermissionNode.has(player, "admin.shop")) {
                     player.sendMessage(Messages.get("errors.no-permission"));
                     return;
@@ -1894,9 +1999,6 @@ public class CaptureCommands implements CommandExecutor {
         }
     }
     
-    /**
-     * Find nearest capture zone to player
-     */
     private CapturePoint findNearestZone(Player player) {
         CapturePoint nearest = null;
         double nearestDist = Double.MAX_VALUE;
@@ -1914,5 +2016,4 @@ public class CaptureCommands implements CommandExecutor {
         return nearestDist <= 100 ? nearest : null; // Within 100 blocks
     }
 }
-
 

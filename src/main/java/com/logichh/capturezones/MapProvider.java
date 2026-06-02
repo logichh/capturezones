@@ -2,11 +2,6 @@ package com.logichh.capturezones;
 
 import org.bukkit.Location;
 
-/**
- * Interface for web map integration abstraction.
- * Allows different map plugins (Dynmap, BlueMap, etc.) to provide
- * markers and regions for capture zones.
- */
 public interface MapProvider {
     
     /**
@@ -44,20 +39,10 @@ public interface MapProvider {
      */
     void removeMarker(String pointId);
     
-    /**
-     * Update all markers to reflect current capture zone states.
-     */
     void updateAllMarkers();
     
-    /**
-     * Clean up and remove all markers.
-     */
     void cleanup();
     
-    /**
-     * Reload configuration and markers.
-     */
     void reload();
 }
-
 

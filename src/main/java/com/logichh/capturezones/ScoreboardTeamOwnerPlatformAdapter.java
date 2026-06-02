@@ -17,21 +17,21 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 
-/**
- * Owner adapter that uses Bukkit scoreboard teams as town-like owner groups.
- */
 public final class ScoreboardTeamOwnerPlatformAdapter implements OwnerPlatformAdapter {
     @Override
+
     public String getPlatformKey() {
         return "scoreboard";
     }
 
     @Override
+
     public EnumSet<CaptureOwnerType> getSupportedOwnerTypes() {
         return EnumSet.of(CaptureOwnerType.PLAYER, CaptureOwnerType.TOWN);
     }
 
     @Override
+
     public String resolveOwnerName(Player player, CaptureOwnerType ownerType) {
         if (player == null || ownerType == null) {
             return null;
@@ -47,6 +47,7 @@ public final class ScoreboardTeamOwnerPlatformAdapter implements OwnerPlatformAd
     }
 
     @Override
+
     public boolean doesPlayerMatchOwner(Player player, String ownerName, CaptureOwnerType ownerType) {
         if (player == null || ownerName == null || ownerType == null) {
             return false;
@@ -56,6 +57,7 @@ public final class ScoreboardTeamOwnerPlatformAdapter implements OwnerPlatformAd
     }
 
     @Override
+
     public List<String> getAvailableOwners(CaptureOwnerType ownerType) {
         if (ownerType == null) {
             return Collections.emptyList();
@@ -86,6 +88,7 @@ public final class ScoreboardTeamOwnerPlatformAdapter implements OwnerPlatformAd
     }
 
     @Override
+
     public String normalizeOwnerName(String ownerName, CaptureOwnerType ownerType) {
         if (ownerType == null || ownerName == null) {
             return null;
@@ -119,21 +122,25 @@ public final class ScoreboardTeamOwnerPlatformAdapter implements OwnerPlatformAd
     }
 
     @Override
+
     public boolean ownerExists(String ownerName, CaptureOwnerType ownerType) {
         return normalizeOwnerName(ownerName, ownerType) != null;
     }
 
     @Override
+
     public boolean depositControlReward(String ownerName, double amount, String reason, CaptureOwnerType ownerType) {
         return false;
     }
 
     @Override
+
     public boolean depositFirstCaptureBonus(UUID playerId, double amount, String reason) {
         return false;
     }
 
     @Override
+
     public String resolveMapColorHex(String ownerName, CaptureOwnerType ownerType, String fallbackHex) {
         if (ownerType != CaptureOwnerType.TOWN || ownerName == null || ownerName.trim().isEmpty()) {
             return fallbackHex;
@@ -154,6 +161,7 @@ public final class ScoreboardTeamOwnerPlatformAdapter implements OwnerPlatformAd
     }
 
     @Override
+
     public boolean isPlayerInSameTown(Player player, CaptureOwner owner) {
         if (player == null || owner == null) {
             return false;
@@ -169,6 +177,7 @@ public final class ScoreboardTeamOwnerPlatformAdapter implements OwnerPlatformAd
     }
 
     @Override
+
     public boolean isPlayerInSameNation(Player player, CaptureOwner owner) {
         return false;
     }

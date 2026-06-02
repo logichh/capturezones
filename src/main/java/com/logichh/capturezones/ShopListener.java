@@ -24,9 +24,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Handles all shop GUI interactions
- */
 public class ShopListener implements Listener {
     
     private final CaptureZones plugin;
@@ -40,10 +37,7 @@ public class ShopListener implements Listener {
         this.activeEditors = new HashMap<>();
         this.pendingEdits = new ConcurrentHashMap<>();
     }
-    
-    /**
-     * Open shop for player
-     */
+
     public void openShop(Player player, String zoneId) {
         ShopManager manager = plugin.getShopManager();
         ShopData shop = manager.getShop(zoneId);
@@ -69,10 +63,7 @@ public class ShopListener implements Listener {
         activeShops.put(player, gui);
         gui.open();
     }
-    
-    /**
-     * Open editor for admin
-     */
+
     public void openEditor(Player admin, String zoneId) {
         if (!PermissionNode.has(admin, "admin.shop")) {
             admin.sendMessage(Messages.get("errors.no-permission"));
@@ -82,7 +73,6 @@ public class ShopListener implements Listener {
         ShopManager manager = plugin.getShopManager();
         ShopData shop = manager.getShop(zoneId);
         
-        // Remove from shop GUI if they were browsing
         activeShops.remove(admin);
         
         ShopEditorGUI editor = new ShopEditorGUI(plugin, zoneId, shop, admin);
@@ -91,39 +81,34 @@ public class ShopListener implements Listener {
     }
     
     @EventHandler(priority = EventPriority.HIGH)
+
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player)) return;
         Player player = (Player) event.getWhoClicked();
 
-        // Check if player has an active editor GUI first (admins take priority)
         if (activeEditors.containsKey(player)) {
             ShopEditorGUI editor = activeEditors.get(player);
             if (!isEditorView(editor, event.getView())) {
                 return; // Not an editor GUI, ignore
             }
             
-            // In ITEM_PLACEMENT mode, allow limited interactions
             if (editor.getMode() == ShopEditorGUI.EditorMode.ITEM_PLACEMENT) {
                 int rawSlot = event.getRawSlot();
                 int topSize = event.getView().getTopInventory().getSize();
                 int infoSlot = editor.getInfoSlot();
                 int backSlot = editor.getBackSlot();
                 
-                // Always cancel to prevent items being taken out
                 event.setCancelled(true);
                 
-                // Info button
                 if (infoSlot >= 0 && rawSlot == infoSlot) {
                     return;
                 }
                 
-                // Back button - go back
                 if (backSlot >= 0 && rawSlot == backSlot) {
                     editor.openMainMenu();
                     return;
                 }
                 
-                // Clicking in player's inventory with shift - try to place in shop
                 if (rawSlot >= topSize && event.isShiftClick()) {
                     ItemStack clicked = event.getCurrentItem();
                     if (clicked != null && clicked.getType() != Material.AIR) {
@@ -141,7 +126,6 @@ public class ShopListener implements Listener {
                     return;
                 }
                 
-                // Shift-click in top inventory - remove item
                 if (rawSlot < topSize && event.isShiftClick()) {
                     ItemStack clicked = event.getCurrentItem();
                     if (clicked != null && clicked.getType() != Material.AIR) {
@@ -152,7 +136,6 @@ public class ShopListener implements Listener {
                     return;
                 }
                 
-                // Regular click in top inventory
                 if (rawSlot < topSize && !event.isShiftClick()) {
                     ItemStack clicked = event.getCurrentItem();
                     ItemStack cursor = event.getCursor();
@@ -176,17 +159,14 @@ public class ShopListener implements Listener {
                 return;
             }
             
-            // For all other modes, cancel and handle normally
             event.setCancelled(true);
             handleEditorClick(player, event);
             return;
         }
         
-        // Check if player has an active shop GUI
         if (activeShops.containsKey(player)) {
             ShopGUI gui = activeShops.get(player);
 
-            // Verify this is actually a shop inventory
             if (!isShopView(gui, event.getView())) {
                 return; // Not a shop GUI, ignore
             }
@@ -198,11 +178,11 @@ public class ShopListener implements Listener {
     }
 
     @EventHandler(priority = EventPriority.HIGH)
+
     public void onInventoryDrag(InventoryDragEvent event) {
         if (!(event.getWhoClicked() instanceof Player)) return;
         Player player = (Player) event.getWhoClicked();
 
-        // Check if player has an active editor GUI first (admins take priority)
         ShopEditorGUI editor = activeEditors.get(player);
         if (editor != null && isEditorView(editor, event.getView())) {
             event.setCancelled(true);
@@ -214,19 +194,14 @@ public class ShopListener implements Listener {
             event.setCancelled(true);
         }
     }
-    
-    /**
-     * Handle player shop GUI clicks
-     */
+
     private void handleShopClick(Player player, InventoryClickEvent event) {
         ShopGUI gui = activeShops.get(player);
         if (gui == null) return;
         
-        // Only process clicks in the top inventory (the shop GUI)
         int rawSlot = event.getRawSlot();
         int topSize = event.getView().getTopInventory().getSize();
         if (rawSlot < 0 || rawSlot >= topSize) {
-            // Click is in player's inventory - event already cancelled, just return
             return;
         }
         
@@ -235,7 +210,6 @@ public class ShopListener implements Listener {
         
         int slot = event.getSlot();
         
-        // Handle based on current GUI state
         switch (gui.getCurrentState()) {
             case BROWSING:
                 handleBrowsing(player, gui, clicked, slot, event);
@@ -247,7 +221,6 @@ public class ShopListener implements Listener {
     }
     
     private void handleBrowsing(Player player, ShopGUI gui, ItemStack clicked, int slot, InventoryClickEvent event) {
-        // Navigation arrows (slots 48, 50 in bottom row)
         if (gui.isPaginated() && (slot == 48 || slot == 50) && clicked.getType() == Material.ARROW) {
             if (!clicked.hasItemMeta()) return;
             String name = clicked.getItemMeta().getDisplayName();
@@ -259,13 +232,10 @@ public class ShopListener implements Listener {
             return;
         }
         
-        // Only process shop items in first 45 slots when paginated
         if (gui.isPaginated() && slot >= 45) return;
         
-        // Shop item - look up using the slot map
         ShopItemConfig item = gui.getItemAtSlot(slot);
         if (item != null) {
-            // Left click = buy, Right click = sell, Shift doesn't matter
             ClickType clickType = event.getClick();
             boolean buyMode = clickType == ClickType.LEFT || clickType == ClickType.SHIFT_LEFT;
             
@@ -283,23 +253,19 @@ public class ShopListener implements Listener {
     }
     
     private void handleQuantitySelect(Player player, ShopGUI gui, ItemStack clicked, int slot) {
-        // Null check for clicked item
         if (clicked == null || clicked.getType() == Material.AIR) {
             return;
         }
         
-        // Slot 22 is the cancel button
         if (slot == 22 && clicked.getType() == Material.BARRIER) {
             gui.open();
             return;
         }
         
-        // Only slots 10-16 are valid quantity options
         if (slot < 10 || slot > 16) {
             return; // Ignore all other slots
         }
         
-        // Must be a glass pane
         Material type = clicked.getType();
         if (type != Material.GREEN_STAINED_GLASS_PANE && 
             type != Material.RED_STAINED_GLASS_PANE && 
@@ -307,7 +273,6 @@ public class ShopListener implements Listener {
             return;
         }
         
-        // Gray panes are disabled (out of stock)
         if (type == Material.GRAY_STAINED_GLASS_PANE) {
             player.sendMessage(Messages.get("errors.shop.out-of-stock"));
             return;
@@ -335,16 +300,11 @@ public class ShopListener implements Listener {
             gui.open();
         }
     }
-    
-    /**
-     * Handle admin editor GUI clicks
-     */
+
     private void handleEditorClick(Player admin, InventoryClickEvent event) {
         ShopEditorGUI editor = activeEditors.get(admin);
         if (editor == null) return;
         
-        // Only process clicks in the top inventory (the editor GUI)
-        // Exception: ITEM_PLACEMENT mode is handled separately with rawSlot checks
         int rawSlot = event.getRawSlot();
         int topSize = event.getView().getTopInventory().getSize();
         if (rawSlot < 0 || rawSlot >= topSize) {
@@ -437,27 +397,23 @@ public class ShopListener implements Listener {
     private void handleItemPlacementClick(Player admin, ShopEditorGUI editor, InventoryClickEvent event) {
         int slot = event.getSlot();
         
-        // Back button
         if (slot == 53) {
             editor.openMainMenu();
             return;
         }
         
-        // Info button
         if (slot == 49) {
             return;
         }
         
         ItemStack clicked = event.getCurrentItem();
         
-        // Shift-click to remove item
         if (event.isShiftClick() && clicked != null && clicked.getType() != Material.AIR) {
             editor.getShop().removeItem(slot);
             editor.openItemPlacement();
             return;
         }
         
-        // Click to configure existing item
         if (clicked != null && clicked.getType() != Material.AIR) {
             ShopItemConfig item = editor.getShop().getItem(slot);
             if (item != null) {
@@ -465,14 +421,12 @@ public class ShopListener implements Listener {
             }
         }
         
-        // Drop item to add new (handled by allowing the event in specific cases)
     }
     
     private void handleItemConfigClick(Player admin, ShopEditorGUI editor, ItemStack clicked, int slot) {
         ShopItemConfig item = editor.getEditingItem();
         if (item == null) return;
         
-        // Slot 4 is the display item - do nothing (already cancelled)
         if (slot == 4) return;
         
         switch (slot) {
@@ -523,10 +477,10 @@ public class ShopListener implements Listener {
     }
     
     @EventHandler
+
     public void onInventoryClose(InventoryCloseEvent event) {
         Player player = (Player) event.getPlayer();
         
-        // Remove from active shop GUIs after verifying the player isn't switching between shop menus
         ShopGUI closingGui = activeShops.get(player);
         if (closingGui != null) {
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
@@ -544,11 +498,9 @@ public class ShopListener implements Listener {
             }, 1L);
         }
         
-        // Save editor changes and sync items from inventory
         if (activeEditors.containsKey(player)) {
             ShopEditorGUI editor = activeEditors.get(player);
             
-            // If closing a 54-slot ITEM_PLACEMENT inventory, sync the contents
             if (editor.getMode() == ShopEditorGUI.EditorMode.ITEM_PLACEMENT && 
                 event.getInventory().getSize() == 54 &&
                 event.getInventory().equals(editor.getCurrentInventory())) {
@@ -556,7 +508,6 @@ public class ShopListener implements Listener {
                 plugin.getShopManager().saveShop(editor.getZoneId());
             }
             
-            // Delay check if player is still in editor
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
                 ShopEditorGUI currentEditor = activeEditors.get(player);
                 if (currentEditor == null) {
@@ -565,7 +516,6 @@ public class ShopListener implements Listener {
                 if (pendingEdits.containsKey(player.getUniqueId())) {
                     return;
                 }
-                // If player doesn't have an editor inventory open anymore, remove them
                 if (!isEditorView(currentEditor, player.getOpenInventory())) {
                     ShopEditorGUI removed = activeEditors.remove(player);
                     if (removed != null) {
@@ -575,21 +525,16 @@ public class ShopListener implements Listener {
             }, 1L);
         }
     }
-    
-    /**
-     * Sync items from editor inventory to shop config
-     */
+
     private void syncEditorInventory(ShopEditorGUI editor, Inventory inv) {
         ShopData shop = editor.getShop();
         
-        // Clear items not in inventory
         Set<Integer> slotsToRemove = new HashSet<>(shop.getItems().keySet());
         
         int infoSlot = editor.getInfoSlot();
         int backSlot = editor.getBackSlot();
 
         for (int slot = 0; slot < 54; slot++) {
-            // Skip control slots
             if (slot == infoSlot || slot == backSlot) continue;
             
             ItemStack item = inv.getItem(slot);
@@ -597,9 +542,7 @@ public class ShopListener implements Listener {
             if (item != null && item.getType() != Material.AIR) {
                 slotsToRemove.remove(slot);
                 
-                // Check if this slot already has a config
                 if (!shop.getItems().containsKey(slot)) {
-                    // Create new config for this item
                     ShopItemConfig config = new ShopItemConfig(item.getType(), slot);
                     config.setBuyable(true);
                     config.setSellable(true);
@@ -613,21 +556,19 @@ public class ShopListener implements Listener {
             }
         }
         
-        // Remove items that are no longer in the inventory
         for (Integer slot : slotsToRemove) {
             shop.removeItem(slot);
         }
     }
     
     @EventHandler
+
     public void onPlayerQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
         
-        // Cleanup any active GUI references to prevent memory leaks
         activeShops.remove(player);
         pendingEdits.remove(player.getUniqueId());
         
-        // Save editor changes before cleanup
         if (activeEditors.containsKey(player)) {
             ShopEditorGUI editor = activeEditors.remove(player);
             plugin.getShopManager().saveShop(editor.getZoneId());
@@ -635,6 +576,7 @@ public class ShopListener implements Listener {
     }
 
     @EventHandler(priority = EventPriority.HIGH)
+
     public void onPlayerChat(AsyncPlayerChatEvent event) {
         PendingEdit pending = pendingEdits.remove(event.getPlayer().getUniqueId());
         if (pending == null) return;
@@ -645,7 +587,6 @@ public class ShopListener implements Listener {
         plugin.getServer().getScheduler().runTask(plugin, () -> applyPendingEdit(event.getPlayer(), pending, message));
     }
     
-    // Helper methods for cycling enum values
     private void cycleAccessMode(ShopData shop) {
         ShopData.AccessMode[] modes = ShopData.AccessMode.values();
         int current = shop.getAccessMode().ordinal();

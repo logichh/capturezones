@@ -4,34 +4,35 @@ import com.palmergames.bukkit.towny.TownyAPI;
 import com.palmergames.bukkit.towny.object.Resident;
 import com.palmergames.bukkit.towny.object.Town;
 import org.bukkit.entity.Player;
-
-/**
- * Shop economy adapter backed by Towny resident accounts.
- */
 public final class TownyShopEconomyAdapter implements ShopEconomyAdapter {
 
     @Override
+
     public String getProviderName() {
         return "Towny";
     }
 
     @Override
+
     public boolean isAvailable() {
         return true;
     }
 
     @Override
+
     public boolean hasAccount(Player player) {
         return getResident(player) != null;
     }
 
     @Override
+
     public boolean has(Player player, double amount) {
         Resident resident = getResident(player);
         return resident != null && resident.getAccount().canPayFromHoldings(amount);
     }
 
     @Override
+
     public boolean withdraw(Player player, double amount, String reason) {
         Resident resident = getResident(player);
         if (resident == null) {
@@ -42,6 +43,7 @@ public final class TownyShopEconomyAdapter implements ShopEconomyAdapter {
     }
 
     @Override
+
     public boolean deposit(Player player, double amount, String reason) {
         Resident resident = getResident(player);
         if (resident == null) {
@@ -52,11 +54,13 @@ public final class TownyShopEconomyAdapter implements ShopEconomyAdapter {
     }
 
     @Override
+
     public boolean supportsOwnerType(CaptureOwnerType ownerType) {
         return ownerType == CaptureOwnerType.TOWN || ownerType == CaptureOwnerType.PLAYER;
     }
 
     @Override
+
     public boolean depositToOwner(String ownerName, CaptureOwnerType ownerType, double amount, String reason) {
         if (ownerName == null || ownerName.trim().isEmpty() || ownerType == null) {
             return false;
@@ -95,3 +99,4 @@ public final class TownyShopEconomyAdapter implements ShopEconomyAdapter {
         return resident;
     }
 }
+

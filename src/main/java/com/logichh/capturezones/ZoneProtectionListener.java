@@ -25,6 +25,7 @@ public class ZoneProtectionListener implements Listener {
     }
 
     @EventHandler
+
     public void onBlockBreak(BlockBreakEvent event) {
         if (event == null || event.getPlayer() == null || event.getBlock() == null) {
             return;
@@ -46,6 +47,7 @@ public class ZoneProtectionListener implements Listener {
     }
 
     @EventHandler
+
     public void onBlockPlace(BlockPlaceEvent event) {
         if (event == null || event.getPlayer() == null || event.getBlock() == null) {
             return;
@@ -67,6 +69,7 @@ public class ZoneProtectionListener implements Listener {
     }
 
     @EventHandler
+
     public void onEntityExplode(EntityExplodeEvent event) {
         if (event == null || event.getLocation() == null) {
             return;
@@ -84,6 +87,7 @@ public class ZoneProtectionListener implements Listener {
     }
 
     @EventHandler
+
     public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
         if (event == null || event.getEntity() == null || event.getDamager() == null) {
             return;
@@ -109,6 +113,7 @@ public class ZoneProtectionListener implements Listener {
     }
 
     @EventHandler
+
     public void onPlayerInteract(PlayerInteractEvent event) {
         if (event == null || event.getPlayer() == null) {
             return;
@@ -142,6 +147,7 @@ public class ZoneProtectionListener implements Listener {
     }
 
     @EventHandler
+
     public void onPlayerTeleport(PlayerTeleportEvent event) {
         if (event == null || event.getPlayer() == null || event.getTo() == null) {
             return;
@@ -175,6 +181,7 @@ public class ZoneProtectionListener implements Listener {
     }
 
     @EventHandler
+
     public void onPlayerCommand(PlayerCommandPreprocessEvent event) {
         if (event == null || event.getPlayer() == null || event.getMessage() == null) {
             return;
@@ -219,8 +226,8 @@ public class ZoneProtectionListener implements Listener {
     }
 
     @EventHandler
+
     public void onCreatureSpawn(CreatureSpawnEvent event) {
-        // Only prevent natural spawning in capture zones
         // Allow all plugin/spawner/egg/custom spawns
         if (event == null || event.getLocation() == null || event.getEntity() == null) {
             return;
@@ -242,9 +249,6 @@ public class ZoneProtectionListener implements Listener {
         // All other spawn reasons (including CUSTOM for reinforcement mobs) are allowed
     }
 
-    /**
-     * Get the zone ID for a location, or null if not in a zone
-     */
     private String getZoneIdAtLocation(Location location) {
         int indexExtra = this.plugin.getSpatialIndexExtraChunks();
         for (CapturePoint point : this.plugin.getCandidateCapturePoints(location, indexExtra)) {
@@ -263,6 +267,7 @@ public class ZoneProtectionListener implements Listener {
      * @deprecated Use getZoneIdAtLocation instead for per-zone config support
      */
     @Deprecated
+
     private boolean isInProtectedZone(Location location) {
         return getZoneIdAtLocation(location) != null;
     }

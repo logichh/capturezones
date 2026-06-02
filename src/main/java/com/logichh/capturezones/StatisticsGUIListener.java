@@ -7,9 +7,6 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 
-/**
- * Handles inventory interactions for statistics GUI menus.
- */
 public class StatisticsGUIListener implements Listener {
     
     private final CaptureZones plugin;
@@ -21,6 +18,7 @@ public class StatisticsGUIListener implements Listener {
     }
     
     @EventHandler
+
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player)) return;
         Player player = (Player) event.getWhoClicked();
@@ -31,17 +29,14 @@ public class StatisticsGUIListener implements Listener {
 
         event.setCancelled(true);
         int slot = event.getRawSlot();
-        
-        // Only handle clicks in the top inventory
         if (slot < 0 || slot >= event.getView().getTopInventory().getSize()) {
             return;
         }
-        
-        // Handle the click
         gui.handleClick(player, slot, event.getClickedInventory());
     }
     
     @EventHandler
+
     public void onInventoryClose(InventoryCloseEvent event) {
         if (!(event.getPlayer() instanceof Player)) return;
 
@@ -49,11 +44,7 @@ public class StatisticsGUIListener implements Listener {
         if (!gui.isStatsView(player, event.getView())) {
             return;
         }
-        
-        // Delay removal to allow navigation between menus
-        // If player opens a new stats menu immediately, don't clear the session
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-            // Only clear if player doesn't have a stats menu open
             if (!gui.isStatsView(player, player.getOpenInventory())) {
                 gui.closeMenu(player);
             }
@@ -61,6 +52,7 @@ public class StatisticsGUIListener implements Listener {
     }
 
     @EventHandler
+
     public void onInventoryDrag(InventoryDragEvent event) {
         if (!(event.getWhoClicked() instanceof Player)) return;
         Player player = (Player) event.getWhoClicked();

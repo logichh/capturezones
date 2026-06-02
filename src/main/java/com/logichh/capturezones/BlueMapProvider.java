@@ -23,10 +23,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.logging.Logger;
 
-/**
- * BlueMap implementation of the MapProvider interface.
- * Integrates capture zones with BlueMap's marker system.
- */
 public class BlueMapProvider implements MapProvider {
     
     private final CaptureZones plugin;
@@ -53,6 +49,7 @@ public class BlueMapProvider implements MapProvider {
     }
     
     @Override
+
     public boolean initialize() {
         try {
             // BlueMap API uses a callback pattern for initialization
@@ -81,7 +78,6 @@ public class BlueMapProvider implements MapProvider {
             
             logger.info("BlueMap integration enabled!");
             
-            // Update all markers after initialization
             plugin.getServer().getScheduler().runTaskLater(plugin, this::updateAllMarkers, 20L);
             
         } catch (Exception e) {
@@ -102,16 +98,19 @@ public class BlueMapProvider implements MapProvider {
     }
     
     @Override
+
     public boolean isAvailable() {
         return available && blueMapAPI != null;
     }
     
     @Override
+
     public String getName() {
         return "BlueMap";
     }
     
     @Override
+
     public void createOrUpdateMarker(CapturePoint point) {
         if (!isAvailable() || point == null) {
             return;
@@ -131,12 +130,9 @@ public class BlueMapProvider implements MapProvider {
 
             float markerY = getMarkerHeight(point);
             
-            // Get BlueMap world
             blueMapAPI.getWorld(world).ifPresent(blueMapWorld -> {
-                // Create marker for each map in this world
                 for (BlueMapMap map : blueMapWorld.getMaps()) {
                     try {
-                        // Get or create marker set
                         MarkerSet markerSet = map.getMarkerSets().computeIfAbsent(
                             markerSetId,
                             id -> MarkerSet.builder()
@@ -157,11 +153,9 @@ public class BlueMapProvider implements MapProvider {
                         Color lineColor = withAlpha(color, (float) lineOpacity);
                         Color fillColor = new Color(color.getRed(), color.getGreen(), color.getBlue(), (float) fillOpacity);
                         
-                        // Create detailed info window HTML
                         String infoHtml = createInfoWindow(point);
                         String detailHtml = showDetails ? infoHtml : "";
                         
-                        // Create or update marker
                         String markerId = point.getId();
                         ShapeMarker marker = ShapeMarker.builder()
                             .label(point.getName())
@@ -197,13 +191,13 @@ public class BlueMapProvider implements MapProvider {
     }
     
     @Override
+
     public void removeMarker(String pointId) {
         if (!isAvailable()) {
             return;
         }
         
         try {
-            // Remove from all worlds and maps
             for (de.bluecolored.bluemap.api.BlueMapWorld blueMapWorld : blueMapAPI.getWorlds()) {
                 for (BlueMapMap map : blueMapWorld.getMaps()) {
                     MarkerSet markerSet = map.getMarkerSets().get(markerSetId);
@@ -223,18 +217,17 @@ public class BlueMapProvider implements MapProvider {
     }
     
     @Override
+
     public void updateAllMarkers() {
         if (!isAvailable()) {
             return;
         }
         
         try {
-            // Clear all existing markers from the marker set
             for (de.bluecolored.bluemap.api.BlueMapWorld blueMapWorld : blueMapAPI.getWorlds()) {
                 for (BlueMapMap map : blueMapWorld.getMaps()) {
                     MarkerSet markerSet = map.getMarkerSets().get(markerSetId);
                     if (markerSet != null) {
-                        // Remove each marker individually as clear() method doesn't exist
                         java.util.Set<String> markerKeys = new java.util.HashSet<>(markerSet.getMarkers().keySet());
                         for (String key : markerKeys) {
                             markerSet.remove(key);
@@ -246,7 +239,6 @@ public class BlueMapProvider implements MapProvider {
             markers.clear();
             centerMarkers.clear();
             
-            // Create markers for all capture zones
             for (CapturePoint point : plugin.getCapturePoints().values()) {
                 if (point != null && point.isShowOnMap() && plugin.shouldDisplayPoint(point)) {
                     createOrUpdateMarker(point);
@@ -266,10 +258,10 @@ public class BlueMapProvider implements MapProvider {
     }
     
     @Override
+
     public void cleanup() {
         if (isAvailable()) {
             try {
-                // Remove all markers from all maps
                 for (de.bluecolored.bluemap.api.BlueMapWorld blueMapWorld : blueMapAPI.getWorlds()) {
                     for (BlueMapMap map : blueMapWorld.getMaps()) {
                         MarkerSet markerSet = map.getMarkerSets().get(markerSetId);
@@ -291,6 +283,7 @@ public class BlueMapProvider implements MapProvider {
     }
     
     @Override
+
     public void reload() {
         loadCenterMarkerConfig();
         updateAllMarkers();
@@ -336,9 +329,6 @@ public class BlueMapProvider implements MapProvider {
         return new Shape(shapePoints);
     }
     
-    /**
-     * Get the marker color based on capture zone status.
-     */
     private Color getMarkerColor(CapturePoint point) {
         if (plugin.isPointActive(point.getId())) {
             String colorHex = getZoneColorHex(point, "capturing", "#FFA500");
@@ -366,9 +356,6 @@ public class BlueMapProvider implements MapProvider {
         return parseHexColor(colorHex, new Color(128, 128, 128));
     }
     
-    /**
-     * Create HTML info window content for the marker.
-     */
     private String createInfoWindow(CapturePoint point) {
         KothManager kothManager = plugin.getKothManager();
         if (kothManager != null && kothManager.isZoneActive(point.getId())) {
@@ -378,7 +365,6 @@ public class BlueMapProvider implements MapProvider {
         StringBuilder html = new StringBuilder();
         html.append("<div style='font-family: sans-serif;'>");
         
-        // Title
         html.append("<h3 style='margin: 0 0 10px 0; color: ");
         String controllingTown = point.getControllingTown();
         if (controllingTown == null || controllingTown.isEmpty()) {
@@ -390,10 +376,8 @@ public class BlueMapProvider implements MapProvider {
         }
         html.append("</h3>");
         
-        // Point name
         html.append("<h4 style='margin: 5px 0;'>").append(point.getName()).append("</h4>");
         
-        // Details
         html.append("<div style='font-size: 13px;'>");
         html.append("<p><strong>").append(Messages.get("dynmap.infowindow.label.type"))
             .append(":</strong> ").append(point.getType()).append("</p>");
@@ -807,5 +791,4 @@ public class BlueMapProvider implements MapProvider {
         }
     }
 }
-
 
