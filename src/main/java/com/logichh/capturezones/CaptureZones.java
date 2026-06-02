@@ -1265,10 +1265,16 @@ extends JavaPlugin {
         }
 
         if (!this.allowedOwnerTypes.contains(this.defaultOwnerType)) {
-            getLogger().severe("Default capture owner type '" + this.defaultOwnerType.name().toLowerCase()
-                + "' is not supported by active provider '" + this.ownerPlatform.getPlatformKey() + "'.");
-            getLogger().severe("Supported types: " + formatOwnerTypes(this.allowedOwnerTypes));
-            return false;
+            getLogger().warning("Default capture owner type '" + this.defaultOwnerType.name().toLowerCase()
+                + "' is not supported by active provider '" + this.ownerPlatform.getPlatformKey() + "'. Falling back to a supported type.");
+            getLogger().warning("Supported types: " + formatOwnerTypes(this.allowedOwnerTypes));
+            // Prefer player if available, otherwise pick the first supported type
+            if (this.allowedOwnerTypes.contains(CaptureOwnerType.PLAYER)) {
+                this.defaultOwnerType = CaptureOwnerType.PLAYER;
+            } else {
+                this.defaultOwnerType = this.allowedOwnerTypes.iterator().next();
+            }
+            getLogger().info("Default owner type set to '" + this.defaultOwnerType.name().toLowerCase() + "'.");
         }
 
         getLogger().info(
