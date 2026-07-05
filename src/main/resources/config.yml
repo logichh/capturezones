@@ -3,7 +3,7 @@
 # Author: Logichh (Milin)
 # Discord: @milin001
 # Discord support server: https://discord.gg/t96nrf7Nav
-# Version: 1.1.4
+# Version: 1.1.5
 # ==============================================
 # 
 # This configuration file contains GLOBAL plugin settings.
@@ -172,6 +172,19 @@ conquest:
       min-teams: 2
       teams: []
       zones: []
+      # Commands executed for online members of the winning owner.
+      winner-command-rewards:
+        enabled: false
+        recipient: "ONLINE_OWNER"
+        execution: "CONSOLE"
+        chance: 100.0
+        cooldown:
+          player-seconds: 0
+          event-seconds: 0
+        conditions:
+          min-player-count: 1
+        commands:
+          - "give %player% diamond 1"
 
 # Global refresh behavior for capturer-bound potion rewards.
 # Individual potion effects are configured per zone in zone-template.yml or zones/<id>_config.yml.
@@ -332,6 +345,9 @@ discord:
     # Combat/gameplay events
     reinforcement-phases: false    # When defenders spawn (can be spammy!)
     player-death: true             # Deaths during captures
+    koth-activated: true           # When a KOTH zone activates
+    koth-stopped: true             # When a KOTH zone is manually stopped
+    koth-captured: true            # When a player wins a KOTH zone
     
     # Admin/management events
     zone-created: true             # When zones are created

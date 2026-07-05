@@ -484,7 +484,9 @@ public class ZoneConfigManager {
             || "reinforcements.mythicmobs.spawn-mode".equals(path)
             || "reinforcements.targeting.mode".equals(path)
             || "capture-conditions.contested.progress-policy".equals(path)
-            || "weekly-reset.day".equals(path);
+            || "weekly-reset.day".equals(path)
+            || (path.startsWith("rewards.command-rewards.") && path.endsWith(".recipient"))
+            || (path.startsWith("rewards.command-rewards.") && path.endsWith(".execution"));
     }
 
     private String toStringValue(Object value) {
@@ -675,6 +677,32 @@ public class ZoneConfigManager {
             return null;
         }
 
+        if (path.startsWith("rewards.command-rewards.") && path.endsWith(".recipient")) {
+            String mode = normalized.replace('-', '_').replace(' ', '_').toUpperCase(Locale.ROOT);
+            if ("INITIATOR".equals(mode)
+                || "PARTICIPANTS".equals(mode)
+                || "ONLINE_OWNER".equals(mode)
+                || "MVP".equals(mode)
+                || "RANDOM_PARTICIPANT".equals(mode)) {
+                return mode;
+            }
+            warnRejectedValue(
+                zoneId,
+                path,
+                candidate,
+                "expected one of: INITIATOR, PARTICIPANTS, ONLINE_OWNER, MVP, RANDOM_PARTICIPANT"
+            );
+            return null;
+        }
+
+        if (path.startsWith("rewards.command-rewards.") && path.endsWith(".execution")) {
+            if ("console".equalsIgnoreCase(normalized) || "player".equalsIgnoreCase(normalized)) {
+                return normalized.toUpperCase(Locale.ROOT);
+            }
+            warnRejectedValue(zoneId, path, candidate, "expected one of: CONSOLE, PLAYER");
+            return null;
+        }
+
         if ("reinforcements.mythicmobs.spawn-mode".equals(path)) {
             if ("mixed".equalsIgnoreCase(normalized) || "mythic_only".equalsIgnoreCase(normalized)) {
                 return normalized.toUpperCase(Locale.ROOT);
@@ -728,6 +756,16 @@ public class ZoneConfigManager {
     private IntRange getIntRange(String path) {
         if (path == null) {
             return null;
+        }
+
+        if (path.startsWith("rewards.command-rewards.") && path.endsWith(".conditions.min-participation-seconds")) {
+            return new IntRange(0, 604800);
+        }
+        if (path.startsWith("rewards.command-rewards.") && path.endsWith(".conditions.min-kills")) {
+            return new IntRange(0, 10000);
+        }
+        if (path.startsWith("rewards.command-rewards.") && path.endsWith(".conditions.min-player-count")) {
+            return new IntRange(1, 1000);
         }
 
         switch (path) {
@@ -790,6 +828,9 @@ public class ZoneConfigManager {
         if (path == null) {
             return null;
         }
+        if (path.startsWith("rewards.command-rewards.") && path.endsWith("-seconds")) {
+            return new LongRange(0L, 31_536_000L);
+        }
         if ("capture-conditions.capture-cooldown.duration-ms".equals(path)
             || "capture-conditions.capture-cooldown.anti-instant-recapture.duration-ms".equals(path)) {
             return new LongRange(0L, 604800000L);
@@ -804,6 +845,9 @@ public class ZoneConfigManager {
     private DoubleRange getDoubleRange(String path) {
         if (path == null) {
             return null;
+        }
+        if (path.startsWith("rewards.command-rewards.") && path.endsWith(".chance")) {
+            return new DoubleRange(0.0, 100.0);
         }
         switch (path) {
             case "rewards.base-reward":

@@ -327,6 +327,14 @@ public final class KothManager {
                     "time", formatTime(captureSeconds),
                     "radius", formatRadius(resolveHoldRadiusBlocks())
                 )));
+                if (plugin.getDiscordWebhook() != null) {
+                    plugin.getDiscordWebhook().sendKothActivated(
+                        zoneId,
+                        point.getName(),
+                        formatTime(captureSeconds),
+                        formatRadius(resolveHoldRadiusBlocks())
+                    );
+                }
             }
             if (point.getLocation() != null) {
                 plugin.playCaptureSoundAtLocation("capture-started", point.getLocation());
@@ -354,10 +362,14 @@ public final class KothManager {
         if (announce) {
             CapturePoint point = plugin.getCapturePoint(zoneId);
             String zoneName = point != null ? point.getName() : zoneId;
+            String normalizedReason = reason == null || reason.isEmpty() ? Messages.get("messages.koth.reason.manual") : reason;
             plugin.broadcastChatMessage(Messages.get("messages.koth.zone-stopped", Map.of(
                 "zone", zoneName,
-                "reason", reason == null || reason.isEmpty() ? Messages.get("messages.koth.reason.manual") : reason
+                "reason", normalizedReason
             )));
+            if (plugin.getDiscordWebhook() != null) {
+                plugin.getDiscordWebhook().sendKothStopped(zoneId.trim(), zoneName, normalizedReason);
+            }
         }
         plugin.refreshPointVisuals(zoneId.trim());
         return true;
@@ -555,11 +567,28 @@ public final class KothManager {
             }
 
             RewardResult rewards = rewardWinner(point, holder);
+            CommandRewardManager commandRewards = plugin.getCommandRewardManager();
+            if (commandRewards != null) {
+                CaptureOwner winnerOwner = plugin.resolveRewardOwner(holder);
+                if (winnerOwner != null) {
+                    commandRewards.executeKothWin(point, winnerOwner, holder, state.captureSeconds);
+                }
+            }
+            String rewardSummary = buildRewardSummary(rewards);
             plugin.broadcastChatMessage(Messages.get("messages.koth.captured", Map.of(
                 "zone", point.getName(),
                 "player", holder.getName(),
-                "rewards", buildRewardSummary(rewards)
+                "rewards", rewardSummary
             )));
+            if (plugin.getDiscordWebhook() != null) {
+                plugin.getDiscordWebhook().sendKothCaptured(
+                    zoneId,
+                    point.getName(),
+                    holder.getName(),
+                    formatTime(state.captureSeconds),
+                    rewardSummary
+                );
+            }
             plugin.playCaptureSoundAtLocation("capture-complete", point.getLocation());
             removeHoldOutline(zoneId);
             iterator.remove();

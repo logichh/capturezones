@@ -36,6 +36,10 @@ implements Listener {
 
     public void onPlayerDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
+        Player rewardKiller = player.getKiller();
+        if (rewardKiller != null) {
+            plugin.recordCaptureRewardKill(rewardKiller, player.getLocation());
+        }
         String killerName = resolveKillerName(player);
         List<String> sessionsToCancel = new ArrayList<>();
         Set<String> announcedDeathZones = new HashSet<>();

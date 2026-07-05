@@ -91,6 +91,9 @@ public class DiscordWebhook {
             alertToggles.put("weekly-reset", alerts.getBoolean("weekly-reset", true));
             alertToggles.put("first-capture-bonus", alerts.getBoolean("first-capture-bonus", true));
             alertToggles.put("player-death", alerts.getBoolean("player-death", true));
+            alertToggles.put("koth-activated", alerts.getBoolean("koth-activated", true));
+            alertToggles.put("koth-stopped", alerts.getBoolean("koth-stopped", true));
+            alertToggles.put("koth-captured", alerts.getBoolean("koth-captured", true));
             alertToggles.put("new-records", alerts.getBoolean("new-records", false));
             alertToggles.put("milestones", alerts.getBoolean("milestones", false));
         }
@@ -420,6 +423,73 @@ public class DiscordWebhook {
                 "victim", victim,
                 "killer", killer,
                 "zone", zoneName
+            )));
+        }
+    }
+
+    public void sendKothActivated(String zoneId, String zoneName, String captureTime, String radius) {
+        if (!isAlertEnabled("koth-activated") || isRateLimited("koth-activated:" + zoneId)) return;
+
+        if (useEmbeds) {
+            sendEmbed(Messages.get("discord.koth.activated.title"),
+                Messages.get("discord.koth.activated.description", Map.of(
+                    "zone", zoneName
+                )),
+                Color.RED,
+                createField(Messages.get("discord.field.zone"), zoneName, true),
+                createField(Messages.get("discord.field.capture-time"), captureTime, true),
+                createField(Messages.get("discord.field.radius"), radius, true)
+            );
+        } else {
+            sendPlainText(Messages.get("discord.koth.activated.plain", Map.of(
+                "zone", zoneName,
+                "time", captureTime,
+                "radius", radius
+            )));
+        }
+    }
+
+    public void sendKothStopped(String zoneId, String zoneName, String reason) {
+        if (!isAlertEnabled("koth-stopped") || isRateLimited("koth-stopped:" + zoneId)) return;
+
+        if (useEmbeds) {
+            sendEmbed(Messages.get("discord.koth.stopped.title"),
+                Messages.get("discord.koth.stopped.description", Map.of(
+                    "zone", zoneName
+                )),
+                Color.ORANGE,
+                createField(Messages.get("discord.field.zone"), zoneName, true),
+                createField(Messages.get("discord.field.reason"), reason, false)
+            );
+        } else {
+            sendPlainText(Messages.get("discord.koth.stopped.plain", Map.of(
+                "zone", zoneName,
+                "reason", reason
+            )));
+        }
+    }
+
+    public void sendKothCaptured(String zoneId, String zoneName, String playerName, String captureTime, String rewards) {
+        if (!isAlertEnabled("koth-captured") || isRateLimited("koth-captured:" + zoneId)) return;
+
+        if (useEmbeds) {
+            sendEmbed(Messages.get("discord.koth.captured.title"),
+                Messages.get("discord.koth.captured.description", Map.of(
+                    "player", playerName,
+                    "zone", zoneName
+                )),
+                Color.GREEN,
+                createField(Messages.get("discord.field.zone"), zoneName, true),
+                createField(Messages.get("discord.field.player"), playerName, true),
+                createField(Messages.get("discord.field.capture-time"), captureTime, true),
+                createField(Messages.get("discord.field.reward"), rewards, false)
+            );
+        } else {
+            sendPlainText(Messages.get("discord.koth.captured.plain", Map.of(
+                "player", playerName,
+                "zone", zoneName,
+                "time", captureTime,
+                "rewards", rewards
             )));
         }
     }

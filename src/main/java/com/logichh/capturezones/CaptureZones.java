@@ -110,6 +110,7 @@ extends JavaPlugin {
     private KothManager kothManager;
     private ConquestManager conquestManager;
     private PotionRewardManager potionRewardManager;
+    private CommandRewardManager commandRewardManager;
     private UpdateZones townUpdater;  // Keep for backward compatibility with Dynmap
     private boolean worldGuardEnabled = false;
     private ReinforcementListener reinforcementListener;
@@ -453,6 +454,7 @@ extends JavaPlugin {
         }
         zoneConfigManager.loadAllZoneConfigs();
         invalidateCapturePointSpatialIndex();
+        commandRewardManager = new CommandRewardManager(this);
 
         setupKothManager();
         setupConquestManager();
@@ -1753,6 +1755,10 @@ extends JavaPlugin {
         cleanupKothManager();
         cleanupConquestManager();
         cleanupPotionRewardManager();
+        if (this.commandRewardManager != null) {
+            this.commandRewardManager.shutdown();
+            this.commandRewardManager = null;
+        }
         cleanupPermissionRewards();
         cleanupHolograms();
         cleanupMapProviders();
@@ -1818,6 +1824,7 @@ extends JavaPlugin {
         this.hologramManager = null;
         this.kothManager = null;
         this.conquestManager = null;
+        this.commandRewardManager = null;
         this.potionRewardManager = null;
         this.townUpdater = null;
         this.placeholderExpansion = null;
@@ -5184,6 +5191,7 @@ extends JavaPlugin {
             String activeOwnerName = activeOwner != null && activeOwner.getDisplayName() != null
                 ? activeOwner.getDisplayName()
                 : ownerName;
+            recordCaptureParticipation(session, point, activeOwner);
 
             if (!graceEnabled && activeOwner != null && !hasAnyCapturingOwnerPlayerInZone(point, activeOwner)) {
                 cancelCapture(pointId, buildMovedTooFarReason(resolveMovedTooFarPlayerName(session, activeOwner)));
@@ -5316,6 +5324,46 @@ extends JavaPlugin {
         captureTasks.put(pointId, captureTask);
     }
 
+    private void recordCaptureParticipation(CaptureSession session, CapturePoint point, CaptureOwner owner) {
+        if (session == null
+            || point == null
+            || point.getLocation() == null
+            || point.getLocation().getWorld() == null
+            || owner == null) {
+            return;
+        }
+        for (Player participant : point.getLocation().getWorld().getPlayers()) {
+            if (participant == null || !participant.isOnline() || participant.isDead()) {
+                continue;
+            }
+            if (doesPlayerMatchOwner(participant, owner) && isWithinZone(point, participant.getLocation())) {
+                session.getPlayers().add(participant);
+                session.recordParticipation(participant);
+            }
+        }
+    }
+
+    public void recordCaptureRewardKill(Player killer, Location location) {
+        if (killer == null || location == null) {
+            return;
+        }
+        for (CaptureSession session : new ArrayList<>(this.activeSessions.values())) {
+            if (session == null || !session.isActive() || session.isInPreparationPhase()) {
+                continue;
+            }
+            CapturePoint point = session.getPoint();
+            CaptureOwner owner = session.getOwner();
+            if (point != null
+                && owner != null
+                && isWithinZone(point, location)
+                && isWithinZone(point, killer.getLocation())
+                && doesPlayerMatchOwner(killer, owner)) {
+                session.getPlayers().add(killer);
+                session.recordRewardKill(killer);
+            }
+        }
+    }
+
     private void completeCapture(CapturePoint point) {
         // Defensive guards: ensure point still exists and session is valid
         if (point == null) {
@@ -5387,6 +5435,28 @@ extends JavaPlugin {
         }
         if (this.potionRewardManager != null && session != null) {
             this.potionRewardManager.onCaptureComplete(point, session.getInitiatorUUID());
+        }
+        if (this.commandRewardManager != null && session != null) {
+            this.commandRewardManager.executeZoneTrigger(
+                CommandRewardManager.Trigger.CAPTURE,
+                point,
+                capturingOwner,
+                previousOwner,
+                session.getInitiatorUUID(),
+                session.getParticipationSeconds(),
+                session.getRewardKills()
+            );
+            if (previousOwner != null && !previousOwner.isSameOwner(capturingOwner)) {
+                this.commandRewardManager.executeZoneTrigger(
+                    CommandRewardManager.Trigger.LOSS,
+                    point,
+                    previousOwner,
+                    capturingOwner,
+                    null,
+                    Collections.emptyMap(),
+                    Collections.emptyMap()
+                );
+            }
         }
         
         String completeMessage = Messages.get("messages.capture.complete", Map.of(
@@ -7160,6 +7230,17 @@ extends JavaPlugin {
                     ));
                     broadcastMessage(permissionMessage);
                 }
+                if (this.commandRewardManager != null) {
+                    this.commandRewardManager.executeZoneTrigger(
+                        CommandRewardManager.Trigger.DAILY_CONTROL,
+                        point,
+                        controllingOwner,
+                        null,
+                        null,
+                        Collections.emptyMap(),
+                        Collections.emptyMap()
+                    );
+                }
             }
             catch (Exception e) {
                 this.getLogger().warning("Failed to give reward to " + ownerName);
@@ -7315,6 +7396,17 @@ extends JavaPlugin {
                         "player", permissionRewardResult.recipientName
                     ));
                     broadcastMessage(permissionMessage);
+                }
+                if (this.commandRewardManager != null) {
+                    this.commandRewardManager.executeZoneTrigger(
+                        CommandRewardManager.Trigger.HOURLY_CONTROL,
+                        point,
+                        controllingOwner,
+                        null,
+                        null,
+                        Collections.emptyMap(),
+                        Collections.emptyMap()
+                    );
                 }
             }
             catch (Exception e) {
@@ -7589,6 +7681,14 @@ extends JavaPlugin {
 
     public ConquestManager getConquestManager() {
         return this.conquestManager;
+    }
+
+    public CommandRewardManager getCommandRewardManager() {
+        return this.commandRewardManager;
+    }
+
+    public CaptureOwner resolveRewardOwner(Player player) {
+        return resolveCaptureOwner(player);
     }
 
     public Set<String> getActiveKothZoneIds() {

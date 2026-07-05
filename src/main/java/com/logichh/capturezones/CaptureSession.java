@@ -30,6 +30,8 @@ public class CaptureSession {
     private final Set<Player> warnedPlayers;
     private final Map<Location, BlockData> originalBlocks;
     private final Map<Player, Long> firstJoinTimes;
+    private final Map<UUID, Integer> participationSeconds;
+    private final Map<UUID, Integer> rewardKills;
     private final Set<Player> hiddenBossBars;
     private BossBar bossBar;
     private BukkitRunnable task;
@@ -65,9 +67,12 @@ public class CaptureSession {
         this.warnedPlayers = new HashSet<Player>();
         this.originalBlocks = new HashMap<Location, BlockData>();
         this.firstJoinTimes = new HashMap<Player, Long>();
+        this.participationSeconds = new HashMap<UUID, Integer>();
+        this.rewardKills = new HashMap<UUID, Integer>();
         this.hiddenBossBars = new HashSet<Player>();
         this.isActive = true;
         this.initiatorUUID = player.getUniqueId();
+        this.participationSeconds.put(this.initiatorUUID, 0);
         this.contested = false;
         this.lastContestedActionbarAt = 0L;
         this.lastGraceActionbarAt = 0L;
@@ -125,6 +130,8 @@ public class CaptureSession {
         this.warnedPlayers.clear();
         this.originalBlocks.clear();
         this.firstJoinTimes.clear();
+        this.participationSeconds.clear();
+        this.rewardKills.clear();
         this.hiddenBossBars.clear();
         this.isActive = false;
     }
@@ -199,6 +206,30 @@ public class CaptureSession {
 
     public UUID getInitiatorUUID() {
         return this.initiatorUUID;
+    }
+
+    public void recordParticipation(Player player) {
+        if (player == null) {
+            return;
+        }
+        this.participationSeconds.merge(player.getUniqueId(), 1, Integer::sum);
+    }
+
+    public void recordRewardKill(Player player) {
+        if (player == null) {
+            return;
+        }
+        UUID playerId = player.getUniqueId();
+        this.participationSeconds.putIfAbsent(playerId, 0);
+        this.rewardKills.merge(playerId, 1, Integer::sum);
+    }
+
+    public Map<UUID, Integer> getParticipationSeconds() {
+        return new HashMap<>(this.participationSeconds);
+    }
+
+    public Map<UUID, Integer> getRewardKills() {
+        return new HashMap<>(this.rewardKills);
     }
 
     public void decrementPreparationTime() {

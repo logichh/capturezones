@@ -1,5 +1,5 @@
 name: CaptureZones
-version: '1.1.4'
+version: '1.1.5'
 main: com.logichh.capturezones.CaptureZones
 api-version: '1.21'
 softdepend: [Towny, Vault, Dynmap, WorldGuard, PlaceholderAPI, Dynmap-Towny, MythicMobs, BlueMap, Pl3xMap]

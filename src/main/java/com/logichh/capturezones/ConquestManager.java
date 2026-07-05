@@ -251,6 +251,9 @@ public final class ConquestManager {
         CaptureOwner winner = ownersByKey.get(winnerKey);
         String winnerName = winner != null ? winner.getDisplayName() : Messages.get("messages.conquest.winner.none");
         String profile = activeProfile;
+        if (winner != null && plugin.getCommandRewardManager() != null) {
+            plugin.getCommandRewardManager().executeConquestWin(profile, winner);
+        }
         stopActiveMatch(Messages.get("messages.conquest.reason.victory"), false);
         plugin.broadcastChatMessage(Messages.get("messages.conquest.finished", Map.of(
             "profile", profile,

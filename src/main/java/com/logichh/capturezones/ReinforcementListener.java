@@ -126,6 +126,10 @@ public class ReinforcementListener implements Listener {
         CaptureSession session = plugin.getActiveSession(pointId);
 
         if (session != null && session.isActive() && !session.isInPreparationPhase()) {
+            Player killer = event.getEntity().getKiller();
+            if (killer != null) {
+                plugin.recordCaptureRewardKill(killer, event.getEntity().getLocation());
+            }
             int secondsReduced = getTimerReductionSeconds(pointId, event.getEntity());
             if (secondsReduced > 0) {
                 int currentTime = session.getRemainingCaptureTime();
@@ -133,7 +137,6 @@ public class ReinforcementListener implements Listener {
                 session.setRemainingCaptureTime(newTime);
 
                 // Notify the killer if it's a player
-                Player killer = event.getEntity().getKiller();
                 if (killer != null) {
                     plugin.sendNotification(killer, Messages.get("messages.reinforcement.timer-reduced", Map.of(
                         "seconds", String.valueOf(secondsReduced)

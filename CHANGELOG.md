@@ -1,5 +1,60 @@
 # CaptureZones - Change Log
 
+## Version 1.1.5 - [2026-07-01]
+
+### Added
+- Added a trigger-based command reward engine under `rewards.command-rewards`.
+- Added per-zone command reward triggers:
+  - Successful capture
+  - Ownership loss
+  - Hourly control payout
+  - Daily control payout
+  - KOTH win
+- Added per-conquest-profile winner command rewards under
+  `conquest.profiles.<profile>.winner-command-rewards`.
+- Added command reward recipient modes:
+  - `INITIATOR`
+  - `PARTICIPANTS`
+  - `ONLINE_OWNER`
+  - `MVP`
+  - `RANDOM_PARTICIPANT`
+- Added console and player command execution modes.
+- Added overall trigger chance and per-command chance.
+- Added weighted command groups for selecting one reward from a configured pool.
+- Added persistent per-player and per-zone/event cooldowns.
+- Added cooldown persistence in `command-reward-cooldowns.yml`.
+- Added reward conditions for minimum participation time, kills, and eligible player count.
+- Added capture contribution tracking for participation time, player kills, and reinforcement kills.
+- Command rewards remain disabled by default.
+- Added command placeholders:
+  - `%player%`
+  - `%player_uuid%`
+  - `%owner%`
+  - `%owner_type%`
+  - `%previous_owner%`
+  - `%new_owner%`
+  - `%zone%`
+  - `%zone_id%`
+  - `%trigger%`
+  - `%event%`
+  - `%participation_seconds%`
+  - `%kills%`
+
+### Changed
+- Updated plugin release metadata to `1.1.5`.
+
+### Configuration
+- Added per-zone config:
+  - `rewards.command-rewards.enabled`
+  - `rewards.command-rewards.execution`
+  - `rewards.command-rewards.chance`
+  - `rewards.command-rewards.cooldown.*`
+  - `rewards.command-rewards.conditions.*`
+  - `rewards.command-rewards.commands`
+  - `rewards.command-rewards.triggers.*`
+- Added conquest profile config:
+  - `conquest.profiles.<profile>.winner-command-rewards.*`
+
 ## Version 1.1.4 - [2026-06-02]
 
 ### Added

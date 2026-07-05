@@ -116,6 +116,57 @@ rewards:
     duration-ticks: 260
     effects:
       - { type: "SPEED", amplifier: 0, particles: true, icon: true, ambient: true }
+  command-rewards:
+    # Trigger-based command rewards. Commands run once per selected recipient.
+    # Available placeholders:
+    # %player%, %player_uuid%, %owner%, %owner_type%, %previous_owner%, %new_owner%,
+    # %zone%, %zone_id%, %trigger%, %event%, %participation_seconds%, %kills%
+    # A leading slash is optional.
+    enabled: false
+    # CONSOLE or PLAYER. Individual command entries can override this.
+    execution: "CONSOLE"
+    # Overall chance that a configured trigger runs.
+    chance: 100.0
+    cooldown:
+      # Per-recipient cooldown for each trigger and zone.
+      player-seconds: 0
+      # Shared cooldown for each trigger and zone.
+      zone-seconds: 0
+    conditions:
+      min-participation-seconds: 0
+      min-kills: 0
+      min-player-count: 1
+    # Backward-compatible capture commands. Used when triggers.capture.commands is empty.
+    # Entries can be plain command strings or maps:
+    # - { command: "give %player% diamond 1", chance: 25.0, execution: "CONSOLE" }
+    # Commands sharing a non-empty group select one entry using their relative weights.
+    # - { command: "give %player% diamond 1", group: "loot", weight: 10 }
+    # - { command: "give %player% emerald 3", group: "loot", weight: 5 }
+    commands:
+      - "give %player% diamond 1"
+    # Every trigger may override recipient, execution, chance, cooldown, conditions, and commands.
+    triggers:
+      capture:
+        enabled: true
+        # INITIATOR, PARTICIPANTS, ONLINE_OWNER, MVP, RANDOM_PARTICIPANT
+        recipient: "INITIATOR"
+        commands: []
+      loss:
+        enabled: false
+        recipient: "ONLINE_OWNER"
+        commands: []
+      hourly-control:
+        enabled: false
+        recipient: "ONLINE_OWNER"
+        commands: []
+      daily-control:
+        enabled: false
+        recipient: "ONLINE_OWNER"
+        commands: []
+      koth-win:
+        enabled: false
+        recipient: "INITIATOR"
+        commands: []
 
 # Reinforcement configuration
 reinforcements:
