@@ -13,6 +13,7 @@
     <properties>
         <java.version>21</java.version>
         <paper.version>1.21-R0.1-SNAPSHOT</paper.version>
+        <pl3xmap.version>1.21-507</pl3xmap.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>${java.version}</maven.compiler.release>
     </properties>
@@ -136,7 +137,7 @@
         <dependency>
             <groupId>maven.modrinth</groupId>
             <artifactId>pl3xmap</artifactId>
-            <version>26.2-554</version>
+            <version>${pl3xmap.version}</version>
             <scope>provided</scope>
             <exclusions>
                 <exclusion>
@@ -228,18 +229,21 @@
             <id>paper-1.21.11</id>
             <properties>
                 <paper.version>1.21.11-R0.1-SNAPSHOT</paper.version>
+                <pl3xmap.version>1.21.11-544</pl3xmap.version>
             </properties>
         </profile>
         <profile>
             <id>paper-26.1</id>
             <properties>
                 <paper.version>26.1.2.build.74-stable</paper.version>
+                <pl3xmap.version>26.1.2-550</pl3xmap.version>
             </properties>
         </profile>
         <profile>
             <id>paper-26.2</id>
             <properties>
                 <paper.version>26.2.build.127-stable</paper.version>
+                <pl3xmap.version>26.2-554</pl3xmap.version>
             </properties>
         </profile>
     </profiles>
