@@ -6,7 +6,7 @@ import java.util.Set;
 import java.util.UUID;
 
 public interface CaptureZonesApi {
-    String API_VERSION = "1.0.0";
+    String API_VERSION = "1.1.0";
 
     String getApiVersion();
 
@@ -23,6 +23,8 @@ public interface CaptureZonesApi {
     Map<String, Object> getActiveCapturesSnapshot();
 
     Map<String, Object> getKothSnapshot();
+
+    Map<String, Object> getConquestsSnapshot();
 
     Map<String, Object> getShopsSnapshot();
 
@@ -109,6 +111,12 @@ public interface CaptureZonesApi {
     CaptureZonesActionResult kothStopAll(String reason, boolean announce);
 
     CaptureZonesActionResult kothAssignZone(String zoneId, boolean assign);
+
+    CaptureZonesActionResult startConquest(String profile);
+
+    CaptureZonesActionResult stopConquest(String profile, String reason, boolean announce);
+
+    CaptureZonesActionResult stopAllConquests(String reason, boolean announce);
 
     CaptureZonesActionResult removePlayerStats(UUID playerId);
 

@@ -682,6 +682,7 @@ public class ZoneConfigManager {
             if ("INITIATOR".equals(mode)
                 || "PARTICIPANTS".equals(mode)
                 || "ONLINE_OWNER".equals(mode)
+                || "ALL_OWNER".equals(mode)
                 || "MVP".equals(mode)
                 || "RANDOM_PARTICIPANT".equals(mode)) {
                 return mode;
@@ -690,7 +691,7 @@ public class ZoneConfigManager {
                 zoneId,
                 path,
                 candidate,
-                "expected one of: INITIATOR, PARTICIPANTS, ONLINE_OWNER, MVP, RANDOM_PARTICIPANT"
+                "expected one of: INITIATOR, PARTICIPANTS, ONLINE_OWNER, ALL_OWNER, MVP, RANDOM_PARTICIPANT"
             );
             return null;
         }
@@ -767,6 +768,12 @@ public class ZoneConfigManager {
         if (path.startsWith("rewards.command-rewards.") && path.endsWith(".conditions.min-player-count")) {
             return new IntRange(1, 1000);
         }
+        if (path.startsWith("rewards.command-rewards.") && path.endsWith(".max-recipients")) {
+            return new IntRange(1, 1000);
+        }
+        if (path.startsWith("rewards.command-rewards.") && path.endsWith(".batch-size")) {
+            return new IntRange(1, 250);
+        }
 
         switch (path) {
             case "capture.preparation.duration":
@@ -787,6 +794,8 @@ public class ZoneConfigManager {
             case "rewards.money.max-recipients":
                 return new IntRange(1, 86400);
             case "rewards.money.batch-size":
+            case "rewards.command-rewards.max-recipients":
+            case "rewards.command-rewards.batch-size":
                 return new IntRange(1, 250);
             case "rewards.potion-effects.duration-ticks":
                 return new IntRange(40, 72000);

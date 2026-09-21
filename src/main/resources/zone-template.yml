@@ -127,6 +127,9 @@ rewards:
     execution: "CONSOLE"
     # Overall chance that a configured trigger runs.
     chance: 100.0
+    # Limits large owner-wide rewards and spreads command dispatch across ticks.
+    max-recipients: 250
+    batch-size: 25
     cooldown:
       # Per-recipient cooldown for each trigger and zone.
       player-seconds: 0
@@ -148,7 +151,8 @@ rewards:
     triggers:
       capture:
         enabled: true
-        # INITIATOR, PARTICIPANTS, ONLINE_OWNER, MVP, RANDOM_PARTICIPANT
+        # INITIATOR, PARTICIPANTS, ONLINE_OWNER, ALL_OWNER, MVP, RANDOM_PARTICIPANT
+        # ALL_OWNER includes offline known members and requires CONSOLE execution.
         recipient: "INITIATOR"
         commands: []
       loss:

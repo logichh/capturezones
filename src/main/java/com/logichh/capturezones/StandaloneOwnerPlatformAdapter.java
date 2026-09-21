@@ -1,6 +1,7 @@
 package com.logichh.capturezones;
 
 import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
@@ -74,6 +75,19 @@ public final class StandaloneOwnerPlatformAdapter implements OwnerPlatformAdapte
 
     public boolean ownerExists(String ownerName, CaptureOwnerType ownerType) {
         return normalizeOwnerName(ownerName, ownerType) != null;
+    }
+
+    @Override
+    public List<OwnerMember> getOwnerMembers(CaptureOwner owner) {
+        if (owner == null || owner.getType() != CaptureOwnerType.PLAYER || owner.getDisplayName() == null) {
+            return Collections.emptyList();
+        }
+        OfflinePlayer player = Bukkit.getOfflinePlayer(owner.getDisplayName());
+        if (!player.isOnline() && !player.hasPlayedBefore()) {
+            return Collections.emptyList();
+        }
+        String name = player.getName() == null ? owner.getDisplayName() : player.getName();
+        return List.of(new OwnerMember(player.getUniqueId(), name));
     }
 
     @Override

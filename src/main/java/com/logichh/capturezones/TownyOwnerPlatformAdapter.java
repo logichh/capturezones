@@ -12,7 +12,9 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -152,7 +154,24 @@ public final class TownyOwnerPlatformAdapter implements OwnerPlatformAdapter {
         if (ownerName == null || ownerType == null) {
             return null;
         }
-        if (ownerType != CaptureOwnerType.TOWN) {
+        if (ownerType == CaptureOwnerType.PLAYER) {
+            try {
+                Resident resident = TownyAPI.getInstance().getResident(ownerName.trim());
+                return resident == null || resident.getUUID() == null ? null : resident.getUUID().toString();
+            } catch (Exception ignored) {
+                return null;
+            }
+        }
+        if (ownerType == CaptureOwnerType.NATION) {
+            try {
+                for (Town town : TownyAPI.getInstance().getTowns()) {
+                    if (town != null && town.hasNation() && town.getNation().getName().equalsIgnoreCase(ownerName.trim())) {
+                        return town.getNation().getUUID().toString();
+                    }
+                }
+            } catch (Exception ignored) {
+                return null;
+            }
             return null;
         }
         Town town = resolveTownByName(ownerName);
@@ -278,6 +297,54 @@ public final class TownyOwnerPlatformAdapter implements OwnerPlatformAdapter {
         } catch (Exception ex) {
             return Collections.emptyList();
         }
+    }
+
+    @Override
+    public List<OwnerMember> getOwnerMembers(CaptureOwner owner) {
+        if (owner == null || owner.getType() == null) {
+            return Collections.emptyList();
+        }
+        try {
+            Map<UUID, OwnerMember> members = new LinkedHashMap<>();
+            if (owner.getType() == CaptureOwnerType.PLAYER) {
+                addResidentMember(members, resolveResident(owner));
+            } else if (owner.getType() == CaptureOwnerType.TOWN) {
+                Town town = resolveTown(owner);
+                if (town != null) {
+                    for (Resident resident : town.getResidents()) {
+                        addResidentMember(members, resident);
+                    }
+                }
+            } else if (owner.getType() == CaptureOwnerType.NATION) {
+                for (Town town : TownyAPI.getInstance().getTowns()) {
+                    if (town == null || !town.hasNation()) {
+                        continue;
+                    }
+                    try {
+                        if (town.getNation().getName().equalsIgnoreCase(owner.getDisplayName())) {
+                            for (Resident resident : town.getResidents()) {
+                                addResidentMember(members, resident);
+                            }
+                        }
+                    } catch (Exception ignored) {
+                        // Ignore broken nation or resident references.
+                    }
+                }
+            }
+            return new ArrayList<>(members.values());
+        } catch (Exception exception) {
+            return Collections.emptyList();
+        }
+    }
+
+    private void addResidentMember(Map<UUID, OwnerMember> members, Resident resident) {
+        if (resident == null || resident.getUUID() == null || resident.getName() == null) {
+            return;
+        }
+        members.putIfAbsent(
+            resident.getUUID(),
+            new OwnerMember(resident.getUUID(), resident.getName())
+        );
     }
 
     public boolean depositResidentReward(String residentName, double amount, String reason) {

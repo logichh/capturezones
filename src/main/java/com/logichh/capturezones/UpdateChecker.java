@@ -4,6 +4,11 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
@@ -152,17 +157,14 @@ public class UpdateChecker {
                 player.sendMessage(ChatColor.GRAY + "Notes: " + ChatColor.WHITE + formatChangelogPreview(changelog));
             }
 
-            net.md_5.bungee.api.chat.TextComponent downloadComponent =
-                new net.md_5.bungee.api.chat.TextComponent(ChatColor.AQUA + "" + ChatColor.UNDERLINE + "Open CaptureZones on Modrinth");
-            downloadComponent.setClickEvent(new net.md_5.bungee.api.chat.ClickEvent(
-                net.md_5.bungee.api.chat.ClickEvent.Action.OPEN_URL,
-                PROJECT_PAGE_URL
-            ));
-            downloadComponent.setHoverEvent(new net.md_5.bungee.api.chat.HoverEvent(
-                net.md_5.bungee.api.chat.HoverEvent.Action.SHOW_TEXT,
-                new net.md_5.bungee.api.chat.ComponentBuilder("Open the official CaptureZones Modrinth page").create()
-            ));
-            player.spigot().sendMessage(downloadComponent);
+            Component downloadComponent = Component.text("Open CaptureZones on Modrinth", NamedTextColor.AQUA)
+                .decorate(TextDecoration.UNDERLINED)
+                .clickEvent(ClickEvent.openUrl(PROJECT_PAGE_URL))
+                .hoverEvent(HoverEvent.showText(Component.text(
+                    "Open the official CaptureZones Modrinth page",
+                    NamedTextColor.GRAY
+                )));
+            player.sendMessage(downloadComponent);
             player.sendMessage(ChatColor.DARK_GRAY + "" + ChatColor.STRIKETHROUGH + "----------------------------------------");
             player.sendMessage("");
             

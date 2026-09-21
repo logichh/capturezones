@@ -100,6 +100,11 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+    public Map<String, Object> getConquestsSnapshot() {
+        return snapshot("conquests", this::conquestsSnapshot);
+    }
+
+    @Override
 
     public Map<String, Object> getShopsSnapshot() {
         return snapshot("shops", this::shopsSnapshot);
@@ -709,6 +714,54 @@ final class CaptureZonesApiService implements CaptureZonesApi {
     }
 
     @Override
+    public CaptureZonesActionResult startConquest(String profile) {
+        return action("conquest-start", () -> {
+            ConquestManager manager = plugin.getConquestManager();
+            if (manager == null || !manager.isEnabled()) {
+                return CaptureZonesActionResult.fail("Conquest mode is disabled.");
+            }
+            if (!manager.startMatch(profile)) {
+                return CaptureZonesActionResult.fail(manager.getLastError());
+            }
+            return CaptureZonesActionResult.ok("Conquest started.", Map.of(
+                "profile", manager.snapshot(profile).profile
+            ));
+        });
+    }
+
+    @Override
+    public CaptureZonesActionResult stopConquest(String profile, String reason, boolean announce) {
+        return action("conquest-stop", () -> {
+            ConquestManager manager = plugin.getConquestManager();
+            if (manager == null) {
+                return CaptureZonesActionResult.fail("Conquest manager is unavailable.");
+            }
+            String target = blank(profile)
+                ? plugin.getConfig().getString("conquest.default-profile", "default")
+                : profile.trim();
+            if (!manager.stopMatch(target, reason, announce)) {
+                return CaptureZonesActionResult.fail(manager.getLastError());
+            }
+            return CaptureZonesActionResult.ok("Conquest stopped.", Map.of("profile", target));
+        });
+    }
+
+    @Override
+    public CaptureZonesActionResult stopAllConquests(String reason, boolean announce) {
+        return action("conquest-stop-all", () -> {
+            ConquestManager manager = plugin.getConquestManager();
+            if (manager == null) {
+                return CaptureZonesActionResult.fail("Conquest manager is unavailable.");
+            }
+            int count = manager.getActiveProfiles().size();
+            if (!manager.stopAllMatches(reason, announce)) {
+                return CaptureZonesActionResult.fail(manager.getLastError());
+            }
+            return CaptureZonesActionResult.ok("All conquests stopped.", Map.of("stopped", count));
+        });
+    }
+
+    @Override
 
     public CaptureZonesActionResult removePlayerStats(UUID playerId) {
         return action("remove-player-stats", () -> {
@@ -754,6 +807,8 @@ final class CaptureZonesApiService implements CaptureZonesApi {
         counts.put("activeCaptures", plugin.getActiveSessions().size());
         counts.put("pointTypes", plugin.getPointTypes().size());
         counts.put("activeKothZones", plugin.getActiveKothZoneIds().size());
+        counts.put("activeConquests", plugin.getConquestManager() == null
+            ? 0 : plugin.getConquestManager().getActiveProfiles().size());
         ShopManager shopManager = plugin.getOrCreateShopManagerIfEnabled();
         counts.put("shops", shopManager == null ? 0 : shopManager.getShops().size());
         out.put("counts", counts);
@@ -774,6 +829,7 @@ final class CaptureZonesApiService implements CaptureZonesApi {
         out.put("zones", zonesSnapshot());
         out.put("activeCaptures", capturesSnapshot());
         out.put("koth", kothSnapshot());
+        out.put("conquests", conquestsSnapshot());
         out.put("shops", shopsSnapshot());
         out.put("statistics", statisticsSnapshot());
         out.put("globalConfig", globalConfigSnapshot());
@@ -838,6 +894,43 @@ final class CaptureZonesApiService implements CaptureZonesApi {
         out.put("activeZoneCount", active.size());
         out.put("assignedZones", plugin.getConfig().getStringList("koth.activation.zones"));
         out.put("selectionMode", plugin.getConfig().getString("koth.activation.selection-mode", "ALL"));
+        return out;
+    }
+
+    private Map<String, Object> conquestsSnapshot() {
+        Map<String, Object> out = envelope("conquests");
+        ConquestManager manager = plugin.getConquestManager();
+        if (manager == null) {
+            out.put("available", false);
+            out.put("active", Collections.emptyList());
+            out.put("activeCount", 0);
+            return out;
+        }
+        out.put("available", true);
+        out.put("enabled", manager.isEnabled());
+        out.put("allowConcurrentMatches", manager.isConcurrentMatchesAllowed());
+        List<Map<String, Object>> active = new ArrayList<>();
+        for (ConquestManager.Snapshot snapshot : manager.snapshots().values()) {
+            Map<String, Object> match = new LinkedHashMap<>();
+            match.put("profile", snapshot.profile);
+            match.put("startedAt", snapshot.startedAt);
+            match.put("zones", snapshot.zoneIds);
+            List<Map<String, Object>> teams = new ArrayList<>();
+            for (Map.Entry<String, Integer> ticketEntry : snapshot.ticketsByOwnerKey.entrySet()) {
+                CaptureOwner owner = snapshot.ownersByKey.get(ticketEntry.getKey());
+                Map<String, Object> team = new LinkedHashMap<>();
+                team.put("key", ticketEntry.getKey());
+                team.put("type", owner == null ? "" : owner.getType().name());
+                team.put("id", owner == null ? "" : owner.getId());
+                team.put("name", owner == null ? ticketEntry.getKey() : owner.getDisplayName());
+                team.put("tickets", ticketEntry.getValue());
+                teams.add(team);
+            }
+            match.put("teams", teams);
+            active.add(match);
+        }
+        out.put("active", active);
+        out.put("activeCount", active.size());
         return out;
     }
 
@@ -1263,6 +1356,7 @@ final class CaptureZonesApiService implements CaptureZonesApi {
         caps.add("snapshot.zones");
         caps.add("snapshot.active-captures");
         caps.add("snapshot.koth");
+        caps.add("snapshot.conquests");
         caps.add("snapshot.shops");
         caps.add("snapshot.statistics");
         caps.add("snapshot.global-config");
@@ -1296,6 +1390,9 @@ final class CaptureZonesApiService implements CaptureZonesApi {
         caps.add("action.koth.stop");
         caps.add("action.koth.stop-all");
         caps.add("action.koth.assign");
+        caps.add("action.conquest.start");
+        caps.add("action.conquest.stop");
+        caps.add("action.conquest.stop-all");
         caps.add("action.stats.remove-player");
         caps.add("action.stats.reset-all");
         return Collections.unmodifiableSet(caps);

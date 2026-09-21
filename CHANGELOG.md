@@ -1,5 +1,33 @@
 # CaptureZones - Change Log
 
+## Version 1.2.0 - [2026-09-22]
+
+### Added
+
+- Conquest profiles can now run at the same time when `conquest.allow-concurrent-matches` is enabled.
+- Active conquests keep separate teams, tickets, zones, and start times.
+- Active matches can return after a plugin reload or server restart through `conquest-state.yml`.
+- `/cap admin conquest stop <profile|all>` and `/cap admin conquest status [profile]` now work with several matches.
+- `ALL_OWNER` command rewards can target known offline town, nation, scoreboard team, and standalone members.
+- Large command rewards can be capped with `max-recipients` and split across ticks with `batch-size`.
+- Add-ons can read, start, and stop conquests through API version `1.1.0`.
+- GitHub builds now check Paper 1.21, 1.21.11, 26.1, and 26.2.
+
+### Changed
+
+- CaptureZones now builds for Java 21 and keeps `api-version: '1.21'`.
+- Action bars and clickable update messages now use Adventure instead of the old Bungee chat API.
+- Gson and bStats are updated and moved into private package names inside the plugin JAR.
+- The old JSON library is gone. Discord webhooks now use Gson too.
+- Towny, TownyChat, Vault, PlaceholderAPI, MythicMobs, and Pl3xMap compile dependencies are current for this release.
+
+### Compatibility notes
+
+- Existing servers still run one conquest at a time until concurrent matches are enabled.
+- Saved 1.1.x matches cannot return because those versions did not store active conquest state.
+- Paper-family servers from Minecraft 1.21.x through 26.2 are the supported target. Use Java 21 for 1.21.x and Java 25 for 26.1 or newer.
+- Commands used with `ALL_OWNER` must support offline player names or UUIDs and must run as console.
+
 ## Version 1.1.5 - [2026-07-01]
 
 ### Added

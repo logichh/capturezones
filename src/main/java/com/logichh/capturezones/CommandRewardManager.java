@@ -6,6 +6,7 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.scheduler.BukkitRunnable;
 
 import java.io.File;
 import java.io.IOException;
@@ -46,6 +47,8 @@ public final class CommandRewardManager {
     private final CaptureZones plugin;
     private final Map<String, Long> playerCooldowns = new LinkedHashMap<>();
     private final Map<String, Long> zoneCooldowns = new LinkedHashMap<>();
+    private final Set<String> pendingScopes = new LinkedHashSet<>();
+    private final Set<BukkitTask> pendingBatches = new LinkedHashSet<>();
     private final File cooldownFile;
     private BukkitTask pendingSave;
 
@@ -120,6 +123,8 @@ public final class CommandRewardManager {
         settings.minParticipationSeconds = 0;
         settings.minKills = 0;
         settings.minPlayerCount = Math.max(1, config.getInt(base + ".conditions.min-player-count", 1));
+        settings.maxRecipients = Math.max(1, config.getInt(base + ".max-recipients", 250));
+        settings.batchSize = Math.max(1, config.getInt(base + ".batch-size", 25));
         settings.commands = config.getList(base + ".commands", Collections.emptyList());
 
         Context context = new Context(
@@ -145,6 +150,13 @@ public final class CommandRewardManager {
             pendingSave.cancel();
         }
         pendingSave = null;
+        for (BukkitTask task : new ArrayList<>(pendingBatches)) {
+            if (task != null && !task.isCancelled()) {
+                task.cancel();
+            }
+        }
+        pendingBatches.clear();
+        pendingScopes.clear();
         saveCooldowns();
         clearCooldowns();
     }
@@ -198,6 +210,16 @@ public final class CommandRewardManager {
             triggerPath + ".conditions.min-player-count",
             manager.getInt(zoneId, root + ".conditions.min-player-count", 1)
         ));
+        settings.maxRecipients = Math.max(1, manager.getInt(
+            zoneId,
+            triggerPath + ".max-recipients",
+            manager.getInt(zoneId, root + ".max-recipients", 250)
+        ));
+        settings.batchSize = Math.max(1, manager.getInt(
+            zoneId,
+            triggerPath + ".batch-size",
+            manager.getInt(zoneId, root + ".batch-size", 25)
+        ));
 
         List<?> triggerCommands = manager.getList(zoneId, triggerPath + ".commands", Collections.emptyList());
         if (trigger == Trigger.CAPTURE && triggerCommands.isEmpty()) {
@@ -217,11 +239,13 @@ public final class CommandRewardManager {
 
         long now = System.currentTimeMillis();
         String scopeKey = scopeKey(context);
-        if (isCoolingDown(zoneCooldowns, scopeKey, settings.zoneCooldownSeconds, now)) {
+        if (pendingScopes.contains(scopeKey)
+            || isCoolingDown(zoneCooldowns, scopeKey, settings.zoneCooldownSeconds, now)) {
             return 0;
         }
 
-        List<Target> eligible = collectEligibleTargets(context);
+        boolean includeAllOwner = "ALL_OWNER".equalsIgnoreCase(settings.recipient);
+        List<Target> eligible = collectEligibleTargets(context, includeAllOwner);
         eligible.removeIf(target ->
             target.participationSeconds < settings.minParticipationSeconds
                 || target.kills < settings.minKills
@@ -239,14 +263,77 @@ public final class CommandRewardManager {
         if (recipients.isEmpty()) {
             return 0;
         }
-
         List<CommandEntry> commands = selectCommands(settings.commands, settings.execution);
         if (commands.isEmpty()) {
             return 0;
         }
+        if (includeAllOwner
+            && commands.stream().anyMatch(entry -> "PLAYER".equalsIgnoreCase(entry.execution))
+            && recipients.stream().anyMatch(target -> Bukkit.getPlayer(target.uuid) == null)) {
+            plugin.getLogger().warning(
+                "ALL_OWNER reward in scope '" + scopeKey
+                    + "' contains PLAYER execution. Those commands will be skipped for offline recipients."
+            );
+        }
+        List<List<Target>> batches = CommandRewardBatchPlanner.plan(
+            recipients,
+            target -> target.uuid,
+            settings.maxRecipients,
+            settings.batchSize
+        );
+        if (batches.isEmpty()) {
+            return 0;
+        }
+        queueBatches(scopeKey, context, batches, commands, now);
+        int recipientCount = batches.stream().mapToInt(List::size).sum();
+        return recipientCount * commands.size();
+    }
 
+    private void queueBatches(
+        String scopeKey,
+        Context context,
+        List<List<Target>> recipientBatches,
+        List<CommandEntry> commands,
+        long queuedAt
+    ) {
+        pendingScopes.add(scopeKey);
+        BukkitRunnable runner = new BukkitRunnable() {
+            private int batchIndex;
+            private int executed;
+            private final Set<UUID> rewardedPlayers = new LinkedHashSet<>();
+
+            @Override
+            public void run() {
+                executed += executeBatch(
+                    recipientBatches.get(batchIndex),
+                    commands,
+                    context,
+                    rewardedPlayers
+                );
+                if (executed > 0) {
+                    recordCooldowns(scopeKey, queuedAt, rewardedPlayers);
+                }
+                batchIndex++;
+                if (batchIndex < recipientBatches.size()) {
+                    return;
+                }
+                finishQueuedReward(scopeKey, context, queuedAt, executed, rewardedPlayers);
+                pendingScopes.remove(scopeKey);
+                pendingBatches.removeIf(task -> task != null && task.getTaskId() == getTaskId());
+                cancel();
+            }
+        };
+        BukkitTask task = runner.runTaskTimer(plugin, 1L, 1L);
+        pendingBatches.add(task);
+    }
+
+    private int executeBatch(
+        List<Target> recipients,
+        List<CommandEntry> commands,
+        Context context,
+        Set<UUID> rewardedPlayers
+    ) {
         int executed = 0;
-        Set<UUID> rewardedPlayers = new LinkedHashSet<>();
         for (Target recipient : recipients) {
             for (CommandEntry entry : commands) {
                 if (!roll(entry.chance)) {
@@ -263,7 +350,13 @@ public final class CommandRewardManager {
                     boolean success;
                     if ("PLAYER".equalsIgnoreCase(entry.execution)) {
                         Player online = Bukkit.getPlayer(recipient.uuid);
-                        success = online != null && online.isOnline() && online.performCommand(command);
+                        if (!CommandRewardBatchPlanner.canExecute(
+                            entry.execution,
+                            online != null && online.isOnline()
+                        )) {
+                            continue;
+                        }
+                        success = online.performCommand(command);
                     } else {
                         success = Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
                     }
@@ -283,13 +376,17 @@ public final class CommandRewardManager {
                 }
             }
         }
+        return executed;
+    }
 
+    private void finishQueuedReward(
+        String scopeKey,
+        Context context,
+        long queuedAt,
+        int executed,
+        Set<UUID> rewardedPlayers
+    ) {
         if (executed > 0) {
-            zoneCooldowns.put(scopeKey, now);
-            for (UUID playerId : rewardedPlayers) {
-                playerCooldowns.put(scopeKey + ":" + playerId, now);
-            }
-            scheduleSave();
             if (plugin.getConfig().getBoolean("settings.debug-mode", false)) {
                 plugin.getLogger().info(
                     "Executed " + executed + " command reward(s) for trigger '"
@@ -297,10 +394,17 @@ public final class CommandRewardManager {
                 );
             }
         }
-        return executed;
     }
 
-    private List<Target> collectEligibleTargets(Context context) {
+    private void recordCooldowns(String scopeKey, long queuedAt, Set<UUID> rewardedPlayers) {
+        zoneCooldowns.put(scopeKey, queuedAt);
+        for (UUID playerId : rewardedPlayers) {
+            playerCooldowns.put(scopeKey + ":" + playerId, queuedAt);
+        }
+        scheduleSave();
+    }
+
+    private List<Target> collectEligibleTargets(Context context, boolean includeAllOwner) {
         Map<UUID, Target> targets = new LinkedHashMap<>();
         for (Map.Entry<UUID, Integer> entry : context.participationSeconds.entrySet()) {
             UUID playerId = entry.getKey();
@@ -339,6 +443,20 @@ public final class CommandRewardManager {
                     online.getName(),
                     Math.max(0, context.participationSeconds.getOrDefault(online.getUniqueId(), 0)),
                     Math.max(0, context.kills.getOrDefault(online.getUniqueId(), 0))
+                ));
+            }
+        }
+        if (includeAllOwner && plugin.getOwnerPlatform() != null) {
+            for (OwnerMember member : plugin.getOwnerPlatform().getOwnerMembers(context.rewardOwner)) {
+                if (member == null) {
+                    continue;
+                }
+                UUID playerId = member.getUniqueId();
+                targets.putIfAbsent(playerId, new Target(
+                    playerId,
+                    member.getName(),
+                    Math.max(0, context.participationSeconds.getOrDefault(playerId, 0)),
+                    Math.max(0, context.kills.getOrDefault(playerId, 0))
                 ));
             }
         }
@@ -381,6 +499,9 @@ public final class CommandRewardManager {
                 return participants;
             }
             return new ArrayList<>(List.of(participants.get(ThreadLocalRandom.current().nextInt(participants.size()))));
+        }
+        if ("ALL_OWNER".equals(mode)) {
+            return new ArrayList<>(eligible);
         }
 
         List<Target> ownerPlayers = new ArrayList<>();
@@ -496,11 +617,7 @@ public final class CommandRewardManager {
     }
 
     private boolean isCoolingDown(Map<String, Long> cooldowns, String key, long seconds, long now) {
-        if (seconds <= 0L) {
-            return false;
-        }
-        Long last = cooldowns.get(key);
-        return last != null && now - last < seconds * 1000L;
+        return CommandRewardBatchPlanner.isCoolingDown(cooldowns.get(key), seconds, now);
     }
 
     private boolean roll(double chance) {
@@ -632,6 +749,8 @@ public final class CommandRewardManager {
         private int minParticipationSeconds;
         private int minKills;
         private int minPlayerCount;
+        private int maxRecipients;
+        private int batchSize;
         private List<?> commands;
     }
 

@@ -760,20 +760,33 @@ public class CaptureCommands implements CommandExecutor {
                 if (conquestManager.startMatch(profile)) {
                     sender.sendMessage(Messages.get("admin.conquest.started", Map.of("profile", profile)));
                 } else {
-                    sender.sendMessage(Messages.get("errors.conquest-start-failed"));
+                    sender.sendMessage(Messages.get("errors.conquest-operation", Map.of(
+                        "reason", conquestManager.getLastError()
+                    )));
                 }
                 return;
             }
             case "stop": {
-                if (conquestManager.stopActiveMatch(Messages.get("messages.conquest.reason.manual"), true)) {
+                String target = args.length >= 3 ? args[2] : "";
+                boolean stopped;
+                if ("all".equalsIgnoreCase(target)) {
+                    stopped = conquestManager.stopAllMatches(Messages.get("messages.conquest.reason.manual"), true);
+                } else if (!target.isEmpty()) {
+                    stopped = conquestManager.stopMatch(target, Messages.get("messages.conquest.reason.manual"), true);
+                } else {
+                    stopped = conquestManager.stopActiveMatch(Messages.get("messages.conquest.reason.manual"), true);
+                }
+                if (stopped) {
                     sender.sendMessage(Messages.get("admin.conquest.stopped"));
                 } else {
-                    sender.sendMessage(Messages.get("errors.conquest-stop-failed"));
+                    sender.sendMessage(Messages.get("errors.conquest-operation", Map.of(
+                        "reason", conquestManager.getLastError()
+                    )));
                 }
                 return;
             }
             case "status":
-                handleAdminConquestStatus(sender, conquestManager);
+                handleAdminConquestStatus(sender, conquestManager, args.length >= 3 ? args[2] : "");
                 return;
             case "assign":
                 handleAdminConquestAssign(sender, args, true);
@@ -791,16 +804,36 @@ public class CaptureCommands implements CommandExecutor {
         }
     }
 
-    private void handleAdminConquestStatus(CommandSender sender, ConquestManager conquestManager) {
-        ConquestManager.Snapshot snapshot = conquestManager.snapshot();
+    private void handleAdminConquestStatus(CommandSender sender, ConquestManager conquestManager, String profile) {
         sender.sendMessage(Messages.get("admin.conquest.status.header"));
-        sender.sendMessage(Messages.get("admin.conquest.status.active", Map.of(
-            "active", String.valueOf(conquestManager.isActive()),
-            "profile", snapshot.profile == null || snapshot.profile.isEmpty() ? "none" : snapshot.profile
-        )));
         if (!conquestManager.isActive()) {
+            sender.sendMessage(Messages.get("admin.conquest.status.active", Map.of(
+                "active", "false",
+                "profile", "none"
+            )));
             return;
         }
+        Map<String, ConquestManager.Snapshot> snapshots = conquestManager.snapshots();
+        if (profile != null && !profile.trim().isEmpty()) {
+            ConquestManager.Snapshot selected = conquestManager.snapshot(profile);
+            if (selected.profile.isEmpty()) {
+                sender.sendMessage(Messages.get("errors.conquest-operation", Map.of(
+                    "reason", "Conquest profile '" + profile + "' is not active."
+                )));
+                return;
+            }
+            snapshots = Map.of(selected.profile, selected);
+        }
+        for (ConquestManager.Snapshot snapshot : snapshots.values()) {
+            sendConquestSnapshot(sender, snapshot);
+        }
+    }
+
+    private void sendConquestSnapshot(CommandSender sender, ConquestManager.Snapshot snapshot) {
+        sender.sendMessage(Messages.get("admin.conquest.status.active", Map.of(
+            "active", "true",
+            "profile", snapshot.profile
+        )));
         for (Map.Entry<String, Integer> entry : snapshot.ticketsByOwnerKey.entrySet()) {
             CaptureOwner owner = snapshot.ownersByKey.get(entry.getKey());
             sender.sendMessage(Messages.get("admin.conquest.status.entry", Map.of(

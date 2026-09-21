@@ -289,6 +289,24 @@ public class CaptureCommandTabCompleter implements TabCompleter {
                 if (args.length == 3) {
                     return filterCompletions(List.of("start", "stop", "status", "assign", "unassign", "zones"), args[2]);
                 }
+                if (args.length == 4 && "start".equalsIgnoreCase(args[2])) {
+                    ConquestManager manager = plugin.getConquestManager();
+                    return filterCompletions(
+                        manager == null ? List.of() : manager.getConfiguredProfiles(),
+                        args[3]
+                    );
+                }
+                if (args.length == 4 && ("stop".equalsIgnoreCase(args[2]) || "status".equalsIgnoreCase(args[2]))) {
+                    ArrayList<String> profiles = new ArrayList<>();
+                    ConquestManager manager = plugin.getConquestManager();
+                    if (manager != null) {
+                        profiles.addAll(manager.getActiveProfiles());
+                    }
+                    if ("stop".equalsIgnoreCase(args[2])) {
+                        profiles.add("all");
+                    }
+                    return filterCompletions(profiles, args[3]);
+                }
                 if (args.length == 4 && ("assign".equalsIgnoreCase(args[2]) || "unassign".equalsIgnoreCase(args[2]) || "remove".equalsIgnoreCase(args[2]))) {
                     ArrayList<String> options = new ArrayList<>();
                     options.add(plugin.getConfig().getString("conquest.default-profile", "default"));

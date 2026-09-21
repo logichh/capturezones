@@ -1,8 +1,8 @@
 package com.logichh.capturezones;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import org.bukkit.configuration.ConfigurationSection;
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
 
 import java.awt.Color;
 import java.net.URI;
@@ -532,28 +532,26 @@ public class DiscordWebhook {
         }
     }
     
-    @SuppressWarnings("unchecked")
-    private JSONObject createField(String name, String value, boolean inline) {
+    private JsonObject createField(String name, String value, boolean inline) {
         if (name == null || value == null) return null;
         
-        JSONObject field = new JSONObject();
-        field.put("name", name);
-        field.put("value", value);
-        field.put("inline", inline);
+        JsonObject field = new JsonObject();
+        field.addProperty("name", name);
+        field.addProperty("value", value);
+        field.addProperty("inline", inline);
         return field;
     }
     
-    @SuppressWarnings("unchecked")
-    private void sendEmbed(String title, String description, Color color, JSONObject... fields) {
+    private void sendEmbed(String title, String description, Color color, JsonObject... fields) {
         CompletableFuture.runAsync(() -> {
             try {
-                JSONObject embed = buildEmbed(title, description, color, fields);
+                JsonObject embed = buildEmbed(title, description, color, fields);
 
-                JSONObject payload = new JSONObject();
+                JsonObject payload = new JsonObject();
                 applyRoleMention(payload, null);
-                JSONArray embeds = new JSONArray();
+                JsonArray embeds = new JsonArray();
                 embeds.add(embed);
-                payload.put("embeds", embeds);
+                payload.add("embeds", embeds);
                 
                 sendWebhook(payload);
                 
@@ -563,11 +561,10 @@ public class DiscordWebhook {
         });
     }
     
-    @SuppressWarnings("unchecked")
     private void sendPlainText(String message) {
         CompletableFuture.runAsync(() -> {
             try {
-                JSONObject payload = new JSONObject();
+                JsonObject payload = new JsonObject();
                 applyRoleMention(payload, message);
                 sendWebhook(payload);
                 
@@ -577,74 +574,72 @@ public class DiscordWebhook {
         });
     }
 
-    @SuppressWarnings("unchecked")
-    private JSONObject buildEmbed(String title, String description, Color color, JSONObject... fields) {
-        JSONObject embed = new JSONObject();
-        embed.put("title", title);
-        embed.put("description", description);
-        embed.put("color", color.getRGB() & 0xFFFFFF);
+    private JsonObject buildEmbed(String title, String description, Color color, JsonObject... fields) {
+        JsonObject embed = new JsonObject();
+        embed.addProperty("title", title);
+        embed.addProperty("description", description);
+        embed.addProperty("color", color.getRGB() & 0xFFFFFF);
         if (embedTimestamp) {
-            embed.put("timestamp", Instant.now().toString());
+            embed.addProperty("timestamp", Instant.now().toString());
         }
         if (embedAuthorName != null && !embedAuthorName.isEmpty()) {
-            JSONObject author = new JSONObject();
-            author.put("name", embedAuthorName);
+            JsonObject author = new JsonObject();
+            author.addProperty("name", embedAuthorName);
             if (embedAuthorIcon != null && !embedAuthorIcon.isEmpty()) {
-                author.put("icon_url", embedAuthorIcon);
+                author.addProperty("icon_url", embedAuthorIcon);
             }
-            embed.put("author", author);
+            embed.add("author", author);
         }
         if (embedFooterText != null && !embedFooterText.isEmpty()) {
-            JSONObject footer = new JSONObject();
-            footer.put("text", embedFooterText);
+            JsonObject footer = new JsonObject();
+            footer.addProperty("text", embedFooterText);
             if (embedFooterIcon != null && !embedFooterIcon.isEmpty()) {
-                footer.put("icon_url", embedFooterIcon);
+                footer.addProperty("icon_url", embedFooterIcon);
             }
-            embed.put("footer", footer);
+            embed.add("footer", footer);
         }
         if (embedThumbnailUrl != null && !embedThumbnailUrl.isEmpty()) {
-            JSONObject thumbnail = new JSONObject();
-            thumbnail.put("url", embedThumbnailUrl);
-            embed.put("thumbnail", thumbnail);
+            JsonObject thumbnail = new JsonObject();
+            thumbnail.addProperty("url", embedThumbnailUrl);
+            embed.add("thumbnail", thumbnail);
         }
         if (fields != null && fields.length > 0) {
-            JSONArray fieldArray = new JSONArray();
-            for (JSONObject field : fields) {
+            JsonArray fieldArray = new JsonArray();
+            for (JsonObject field : fields) {
                 if (field != null) {
                     fieldArray.add(field);
                 }
             }
             if (!fieldArray.isEmpty()) {
-                embed.put("fields", fieldArray);
+                embed.add("fields", fieldArray);
             }
         }
         return embed;
     }
 
-    @SuppressWarnings("unchecked")
-    private void applyRoleMention(JSONObject payload, String message) {
+    private void applyRoleMention(JsonObject payload, String message) {
         if (message == null) {
             message = "";
         }
         if (mentionRole == null || mentionRole.isEmpty()) {
             if (!message.isEmpty()) {
-                payload.put("content", message);
+                payload.addProperty("content", message);
             }
             return;
         }
         String content = message.isEmpty() ? mentionRole : mentionRole + " " + message;
-        payload.put("content", content);
+        payload.addProperty("content", content);
         if (mentionRoleId != null && !mentionRoleId.isEmpty()) {
-            JSONObject allowedMentions = new JSONObject();
-            allowedMentions.put("parse", new JSONArray());
-            JSONArray roles = new JSONArray();
+            JsonObject allowedMentions = new JsonObject();
+            allowedMentions.add("parse", new JsonArray());
+            JsonArray roles = new JsonArray();
             roles.add(mentionRoleId);
-            allowedMentions.put("roles", roles);
-            payload.put("allowed_mentions", allowedMentions);
+            allowedMentions.add("roles", roles);
+            payload.add("allowed_mentions", allowedMentions);
         }
     }
     
-    private boolean sendWebhook(JSONObject payload) {
+    private boolean sendWebhook(JsonObject payload) {
         final int maxRetries = 3;
         long backoffMs = 1000L;
         int attempt = 0;
@@ -659,7 +654,7 @@ public class DiscordWebhook {
             attempt++;
             try {
                 HttpRequest request = baseRequestBuilder
-                        .POST(HttpRequest.BodyPublishers.ofString(payload.toJSONString(), StandardCharsets.UTF_8))
+                        .POST(HttpRequest.BodyPublishers.ofString(payload.toString(), StandardCharsets.UTF_8))
                         .build();
 
                 HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
@@ -740,22 +735,22 @@ public class DiscordWebhook {
         
         try {
             if (useEmbeds) {
-                JSONObject embed = buildEmbed(Messages.get("discord.test.title"),
+                JsonObject embed = buildEmbed(Messages.get("discord.test.title"),
                         Messages.get("discord.test.description"),
                         Color.GREEN,
                         createField(Messages.get("discord.field.status"), Messages.get("discord.value.connected"), true),
                         createField(Messages.get("discord.field.plugin-version"), plugin.getDescription().getVersion(), true)
                 );
 
-                JSONObject payload = new JSONObject();
-                JSONArray embeds = new JSONArray();
+                JsonObject payload = new JsonObject();
+                JsonArray embeds = new JsonArray();
                 embeds.add(embed);
-                payload.put("embeds", embeds);
+                payload.add("embeds", embeds);
                 applyRoleMention(payload, null);
 
                 return sendWebhook(payload);
             } else {
-                JSONObject payload = new JSONObject();
+                JsonObject payload = new JsonObject();
                 applyRoleMention(payload, Messages.get("discord.test.plain"));
                 return sendWebhook(payload);
             }

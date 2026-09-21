@@ -60,6 +60,10 @@ public interface OwnerPlatformAdapter {
         return owner;
     }
 
+    default List<OwnerMember> getOwnerMembers(CaptureOwner owner) {
+        return List.of();
+    }
+
     boolean isPlayerInSameTown(Player player, CaptureOwner owner);
 
     boolean isPlayerInSameNation(Player player, CaptureOwner owner);

@@ -4,20 +4,24 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.logichh</groupId>
     <artifactId>capturezones</artifactId>
-    <version>1.1.5</version>
+    <version>1.2.0</version>
     <packaging>jar</packaging>
 
     <name>CaptureZones</name>
     <description>A plugin that adds capturable zones with optional map integrations</description>
 
     <properties>
-        <java.version>17</java.version>
+        <java.version>21</java.version>
+        <paper.version>1.21-R0.1-SNAPSHOT</paper.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>${java.version}</maven.compiler.source>
-        <maven.compiler.target>${java.version}</maven.compiler.target>
+        <maven.compiler.release>${java.version}</maven.compiler.release>
     </properties>
 
     <repositories>
+        <repository>
+            <id>papermc</id>
+            <url>https://repo.papermc.io/repository/maven-public/</url>
+        </repository>
         <repository>
             <id>spigot-repo</id>
             <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
@@ -64,15 +68,15 @@
 
     <dependencies>
         <dependency>
-            <groupId>org.spigotmc</groupId>
-            <artifactId>spigot-api</artifactId>
-            <version>1.21.11-R0.1-SNAPSHOT</version>
+            <groupId>io.papermc.paper</groupId>
+            <artifactId>paper-api</artifactId>
+            <version>${paper.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.github.PlaceholderAPI</groupId>
             <artifactId>PlaceholderAPI</artifactId>
-            <version>2.11.3</version>
+            <version>2.11.6</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
@@ -90,49 +94,37 @@
         <dependency>
             <groupId>com.palmergames.bukkit.towny</groupId>
             <artifactId>towny</artifactId>
-            <version>0.100.1.0</version>
+            <version>0.103.2.7</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.github.TownyAdvanced</groupId>
             <artifactId>TownyChat</artifactId>
-            <version>0.90</version>
+            <version>0.122</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.github.MilkBowl</groupId>
             <artifactId>VaultAPI</artifactId>
-            <version>1.7</version>
+            <version>1.7.1</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.bstats</groupId>
             <artifactId>bstats-bukkit</artifactId>
-            <version>3.0.2</version>
+            <version>3.2.1</version>
             <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
-            <version>2.10.1</version>
+            <version>2.14.0</version>
             <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.googlecode.json-simple</groupId>
-            <artifactId>json-simple</artifactId>
-            <version>1.1.1</version>
-            <scope>compile</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>junit</groupId>
-                    <artifactId>junit</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
         <dependency>
             <groupId>io.lumine</groupId>
             <artifactId>Mythic-Dist</artifactId>
-            <version>5.6.1</version>
+            <version>5.13.0</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
@@ -144,7 +136,7 @@
         <dependency>
             <groupId>maven.modrinth</groupId>
             <artifactId>pl3xmap</artifactId>
-            <version>1.20.4-476</version>
+            <version>26.2-554</version>
             <scope>provided</scope>
             <exclusions>
                 <exclusion>
@@ -156,6 +148,12 @@
                     <artifactId>hamcrest-core</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.13.4</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
@@ -186,16 +184,20 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.11.0</version>
+                <version>3.14.1</version>
                 <configuration>
-                    <source>${java.version}</source>
-                    <target>${java.version}</target>
+                    <release>${java.version}</release>
                 </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.3</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.5.1</version>
+                <version>3.6.1</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -209,6 +211,10 @@
                                     <pattern>org.bstats</pattern>
                                     <shadedPattern>com.logichh.capturezones.bstats</shadedPattern>
                                 </relocation>
+                                <relocation>
+                                    <pattern>com.google.gson</pattern>
+                                    <shadedPattern>com.logichh.capturezones.libs.gson</shadedPattern>
+                                </relocation>
                             </relocations>
                         </configuration>
                     </execution>
@@ -216,5 +222,26 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>paper-1.21.11</id>
+            <properties>
+                <paper.version>1.21.11-R0.1-SNAPSHOT</paper.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>paper-26.1</id>
+            <properties>
+                <paper.version>26.1.2.build.74-stable</paper.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>paper-26.2</id>
+            <properties>
+                <paper.version>26.2.build.127-stable</paper.version>
+            </properties>
+        </profile>
+    </profiles>
 </project>
 

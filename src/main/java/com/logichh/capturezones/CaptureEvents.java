@@ -18,8 +18,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import net.md_5.bungee.api.ChatMessageType;
-import net.md_5.bungee.api.chat.TextComponent;
 
 public class CaptureEvents
 implements Listener {
@@ -215,15 +213,7 @@ implements Listener {
     }
 
     private void sendActionBarMessage(Player player, String message) {
-        if (this.plugin.isNotificationsDisabled(player)) {
-            return;
-        }
-        String colorized = this.plugin.colorize(message);
-        try {
-            player.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent.fromLegacyText(colorized));
-        } catch (NoClassDefFoundError | Exception e) {
-            // Ignore if action bar is not available; avoid spamming chat.
-        }
+        this.plugin.sendActionBarMessage(player, message);
     }
 
     private void cancelOwnerCapturesIfPlayerExitedZone(Player player, Location from, Location to, Set<String> relevantPointIds) {

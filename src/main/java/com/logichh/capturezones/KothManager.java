@@ -18,8 +18,6 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
-import net.md_5.bungee.api.ChatMessageType;
-import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -943,15 +941,7 @@ public final class KothManager {
         if (player == null || !player.isOnline() || player.isDead() || plugin.isNotificationsDisabled(player)) {
             return;
         }
-        if (message == null || message.isEmpty()) {
-            return;
-        }
-        String colorized = plugin.colorize(message);
-        try {
-            player.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent.fromLegacyText(colorized));
-        } catch (NoClassDefFoundError | Exception ignored) {
-            // ActionBar is optional; ignore silently.
-        }
+        plugin.sendActionBarMessage(player, message);
     }
 
     private boolean isScheduleDayAllowed() {

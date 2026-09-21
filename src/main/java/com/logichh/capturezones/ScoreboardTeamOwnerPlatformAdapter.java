@@ -12,8 +12,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -125,6 +127,51 @@ public final class ScoreboardTeamOwnerPlatformAdapter implements OwnerPlatformAd
 
     public boolean ownerExists(String ownerName, CaptureOwnerType ownerType) {
         return normalizeOwnerName(ownerName, ownerType) != null;
+    }
+
+    @Override
+    public List<OwnerMember> getOwnerMembers(CaptureOwner owner) {
+        if (owner == null || owner.getType() == null || owner.getDisplayName() == null) {
+            return Collections.emptyList();
+        }
+        Set<String> entries = new LinkedHashSet<>();
+        if (owner.getType() == CaptureOwnerType.PLAYER) {
+            entries.add(owner.getDisplayName());
+        } else if (owner.getType() == CaptureOwnerType.TOWN) {
+            ScoreboardManager manager = Bukkit.getScoreboardManager();
+            if (manager != null) {
+                collectTeamEntries(manager.getMainScoreboard(), owner.getDisplayName(), entries);
+            }
+            for (Player online : Bukkit.getOnlinePlayers()) {
+                if (online != null) {
+                    collectTeamEntries(online.getScoreboard(), owner.getDisplayName(), entries);
+                }
+            }
+        }
+        Map<UUID, OwnerMember> members = new LinkedHashMap<>();
+        for (String entry : entries) {
+            if (entry == null || entry.trim().isEmpty()) {
+                continue;
+            }
+            OfflinePlayer player = Bukkit.getOfflinePlayer(entry.trim());
+            if (!player.isOnline() && !player.hasPlayedBefore()) {
+                continue;
+            }
+            String name = player.getName() == null ? entry.trim() : player.getName();
+            members.putIfAbsent(player.getUniqueId(), new OwnerMember(player.getUniqueId(), name));
+        }
+        return new ArrayList<>(members.values());
+    }
+
+    private void collectTeamEntries(Scoreboard scoreboard, String teamName, Set<String> output) {
+        String matched = matchTeamName(scoreboard, teamName);
+        if (matched == null) {
+            return;
+        }
+        Team team = scoreboard.getTeam(matched);
+        if (team != null) {
+            output.addAll(team.getEntries());
+        }
     }
 
     @Override

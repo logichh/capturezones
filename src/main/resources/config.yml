@@ -3,7 +3,7 @@
 # Author: Logichh (Milin)
 # Discord: @milin001
 # Discord support server: https://discord.gg/t96nrf7Nav
-# Version: 1.1.5
+# Version: 1.2.0
 # ==============================================
 # 
 # This configuration file contains GLOBAL plugin settings.
@@ -162,6 +162,15 @@ conquest:
   enabled: false
   default-profile: "default"
   tick-interval-seconds: 30
+  # Keep false to retain the pre-1.2 behavior where a new match replaces the current match.
+  allow-concurrent-matches: false
+  max-active-matches: 10
+  persist-active-matches: true
+  actionbar:
+    enabled: true
+    # ROTATE shows the player's active matches while outside a conquest zone. NONE hides them.
+    outside-zone-mode: "ROTATE"
+    rotation-seconds: 5
   profiles:
     default:
       owner-type: "town"
@@ -172,7 +181,7 @@ conquest:
       min-teams: 2
       teams: []
       zones: []
-      # Commands executed for online members of the winning owner.
+      # Use ALL_OWNER to include offline members. The called command must support offline targets.
       winner-command-rewards:
         enabled: false
         recipient: "ONLINE_OWNER"
@@ -183,6 +192,8 @@ conquest:
           event-seconds: 0
         conditions:
           min-player-count: 1
+        max-recipients: 250
+        batch-size: 25
         commands:
           - "give %player% diamond 1"
 

@@ -14,6 +14,7 @@ import com.logichh.capturezones.NewDayListener;
 import com.logichh.capturezones.UpdateZones;
 import com.logichh.capturezones.ZoneProtectionListener;
 import com.logichh.capturezones.ReinforcementListener;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -29,8 +30,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import net.md_5.bungee.api.ChatMessageType;
-import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -3011,7 +3010,7 @@ extends JavaPlugin {
             if (!isWithinZone(point, player.getLocation())) {
                 continue;
             }
-            sendActionBar(player, actionbar);
+            sendActionBarMessage(player, actionbar);
         }
     }
 
@@ -3055,17 +3054,17 @@ extends JavaPlugin {
             if (!matchesOwner) {
                 continue;
             }
-            sendActionBar(player, actionbar);
+            sendActionBarMessage(player, actionbar);
         }
     }
 
-    private void sendActionBar(Player player, String message) {
+    public void sendActionBarMessage(Player player, String message) {
         if (player == null || message == null || message.isEmpty() || isNotificationsDisabled(player)) {
             return;
         }
         try {
-            player.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent.fromLegacyText(colorize(message)));
-        } catch (Exception ignored) {
+            player.sendActionBar(LegacyComponentSerializer.legacySection().deserialize(colorize(message)));
+        } catch (LinkageError | Exception ignored) {
             // Ignore actionbar delivery failures on unsupported clients/server forks.
         }
     }
